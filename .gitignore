@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+.env
+.venv/
+venv/
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Byte-compiled / optimized / DLL files
+python/__pycache__/
+
+# Logs
+logs/
+*.log
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store
+
+# Build
+build/
+dist/
+*.egg-info/

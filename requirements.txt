@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pillow
+pydantic-settings
+email-validator
+passlib[bcrypt]
+python-jose[cryptography]
+google-auth
+requests
+prisma
+boto3
+httpx

@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  name              String?
+  passwordHash      String?
+  provider          String   // "password" | "google"
+  emailVerified     Boolean  @default(false)
+  verificationCode  String?
+  codeExpiresAt     DateTime?
+  codeAttempts      Int      @default(0)
+  createdAt         DateTime @default(now())
+  remodels          RemodelJob[]
+}
+
+model RemodelJob {
+  id             String   @id @default(uuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  status         String   // queued | running | done | failed
+  inputImageUrl  String
+  prompt         String?
+  style          String?
+  items          Json?
+  width          Int
+  height         Int
+  outputImageUrl String?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
