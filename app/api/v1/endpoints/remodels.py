@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, Response
 
 from app.core.config import settings
+from app.core.auth import get_current_user_optional
 from app.models.schemas import RemodelJobOut
 from app.services.remodel_service import enqueue_remodel_job, process_job
 import logging
+from app.db import client as db_client
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +28,7 @@ async def create_remodel_job(
     width: int = Form(1024),
     height: int = Form(1024),
     wait: bool = Form(True),
+    current_user: Optional[dict] = Depends(get_current_user_optional),
 ):
     try:
         if width > settings.MAX_IMAGE_SIZE or height > settings.MAX_IMAGE_SIZE:
@@ -42,6 +46,41 @@ async def create_remodel_job(
             items_list = None
         logger.info("Parsed items_list=%s", items_list)
 
+        # Check user credits and apply restrictions for anonymous users
+        user_id = None
+        if current_user:
+            user_id = current_user["id"]
+            if current_user["credits"] < 1:
+                raise HTTPException(
+                    status_code=402,  # Payment Required
+                    detail="Insufficient credits. You need at least 1 credit to create a remodel job."
+                )
+        else:
+            # Anonymous user restrictions
+            if style is not None:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Style customization requires authentication. Please sign up or log in."
+                )
+            if items_list is not None:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Item specification requires authentication. Please sign up or log in."
+                )
+            if width != 1024 or height != 1024:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Custom dimensions require authentication. Please sign up or log in."
+                )
+            if prompt and len(prompt) > 100:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Long prompts require authentication. Please keep prompts under 100 characters or sign up."
+                )
+            # Force basic settings for anonymous users
+            width = 1024
+            height = 1024
+
         job = await enqueue_remodel_job(
             image_bytes=data,
             content_type=content_type,
@@ -50,31 +89,33 @@ async def create_remodel_job(
             items=items_list,
             width=width,
             height=height,
-            user_id=None,  # TODO: wire JWT user
+            user_id=user_id,
         )
 
-        logger.info("Enqueued remodel job id=%s status=%s", job["id"], job["status"])  # type: ignore
+        logger.info("Enqueued remodel job id=%s status=%s", job["id"], job["status"]) 
 
         if wait:
             # Run processing inline and return the completed job (or failed) in this POST response
-            logger.info("Starting inline processing for job id=%s", job["id"])  # type: ignore
-            await process_job(job["id"])  # type: ignore
-            from app.db import client as db_client
-            if db_client.prisma is None:
-                await db_client.connect()
-            final = await db_client.prisma.remodeljob.find_unique(where={"id": job["id"]})  # type: ignore
+            logger.info("Starting inline processing for job id=%s", job["id"]) 
+            await process_job(job["id"]) 
+
+            final = await db_client.prisma.remodeljob.find_unique(where={"id": job["id"]}) 
             if not final:
                 raise HTTPException(status_code=404, detail="Job not found after processing")
-            items_val = final.items if isinstance(final.items, list) else None  # type: ignore[attr-defined]
+            
+            items_val = final.items if isinstance(final.items, list) else None 
             logger.info("Inline processing completed for job id=%s status=%s", final.id, final.status)
-            # If failed, return a minimal error body via HTTP 500
+            # If failed, return a minimal error body via HTTP 500 (truncate long errors)
             if str(final.status).lower() == "failed":
+                err = (final.error or "").strip()
+                if len(err) > 300:
+                    err = err[:300] + "... [truncated]"
                 raise HTTPException(
                     status_code=500,
                     detail={
                         "id": final.id,
                         "status": final.status,
-                        "error": final.error,
+                        "error": err,
                     },
                 )
             # Success -> 200 with full payload
@@ -82,9 +123,8 @@ async def create_remodel_job(
             return {
                 "id": final.id,
                 "status": final.status,
-                "inputImageUrl": final.inputImageUrl,
-                "outputImageUrl": final.outputImageUrl,
-                "error": final.error,
+                "reference": final.reference,
+                "output": final.output,
                 "prompt": final.prompt,
                 "style": final.style,
                 "items": items_val,
@@ -93,20 +133,19 @@ async def create_remodel_job(
             }
 
         # Schedule background processing
-        background.add_task(process_job, job["id"])  # type: ignore
-        logger.info("Scheduled background processing for job id=%s", job["id"])  # type: ignore
-        return {
-            "id": job["id"],
-            "status": job["status"],
-            "inputImageUrl": job["inputImageUrl"],
-            "outputImageUrl": job.get("outputImageUrl"),
-            "error": job.get("error"),
-            "prompt": job.get("prompt"),
-            "style": job.get("style"),
-            "items": job.get("items"),
-            "width": job["width"],
-            "height": job["height"],
-        }
+        # background.add_task(process_job, job["id"]) 
+        # logger.info("Scheduled background processing for job id=%s", job["id"]) 
+        # return {
+        #     "id": job["id"],
+        #     "status": job["status"],
+        #     "reference": job["reference"],
+        #     "output": job.get("output"),
+        #     "prompt": job.get("prompt"),
+        #     "style": job.get("style"),
+        #     "items": job.get("items"),
+        #     "width": job["width"],
+        #     "height": job["height"],
+        # }
     except Exception as e:
         logger.exception("Error in create_remodel_job: %s", e)
         raise HTTPException(status_code=400, detail=str(e))
@@ -126,8 +165,8 @@ async def get_remodel_job(job_id: str):
     return {
         "id": job.id,
         "status": job.status,
-        "inputImageUrl": job.inputImageUrl,
-        "outputImageUrl": job.outputImageUrl,
+        "reference": job.reference,
+        "output": job.output,
         "error": job.error,
         "prompt": job.prompt,
         "style": job.style,

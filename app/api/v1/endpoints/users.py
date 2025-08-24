@@ -1,0 +1,100 @@
+from __future__ import annotations
+
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.core.auth import get_current_user_required
+from app.models.schemas import RemodelJobOut
+from app.models.auth_schemas import UserPublic
+from app.db import client as db_client
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/me", response_model=UserPublic)
+async def get_current_user_details(
+    current_user: dict = Depends(get_current_user_required),
+):
+    """
+    Get current authenticated user's details including credits.
+    """
+    return UserPublic(
+        id=current_user["id"],
+        email=current_user["email"],
+        name=current_user.get("name"),
+        emailVerified=current_user.get("emailVerified", False),
+        credits=current_user.get("credits", 1),
+    )
+
+
+@router.get("/me/remodels", response_model=List[RemodelJobOut])
+async def get_user_remodel_jobs(
+    current_user: dict = Depends(get_current_user_required),
+    status: Optional[str] = Query(None, description="Filter by status: queued, running, done, failed"),
+    limit: int = Query(20, ge=1, le=100, description="Number of jobs to return (1-100)"),
+    offset: int = Query(0, ge=0, description="Number of jobs to skip"),
+):
+    """
+    Get all remodel jobs/projects for the authenticated user.
+    Supports filtering by status and pagination.
+    """
+
+    where_clause = {"userId": current_user["id"]}
+    if status:
+        if status not in ["queued", "running", "done", "failed"]:
+            raise HTTPException(status_code=400, detail="Invalid status. Must be one of: queued, running, done, failed")
+        where_clause["status"] = status
+    
+    # Fetch user's remodel jobs with pagination
+    jobs = await db_client.prisma.remodeljob.find_many(
+        where=where_clause,
+        take=limit,
+        skip=offset,
+    )
+    
+    # Convert to response format
+    result = []
+    for job in jobs:
+        items = job.items if isinstance(job.items, list) else None
+        result.append({
+            "id": job.id,
+            "status": job.status,
+            "reference": job.reference,
+            "output": job.output,
+            "prompt": job.prompt,
+            "style": job.style,
+            "items": items,
+            "width": job.width,
+            "height": job.height,
+        })
+    
+    logger.info("Retrieved %d remodel jobs for user %s", len(result), current_user["id"])
+    return result
+
+
+@router.get("/me/remodels/count")
+async def get_user_remodel_jobs_count(
+    current_user: dict = Depends(get_current_user_required),
+    status: Optional[str] = Query(None, description="Filter by status: queued, running, done, failed"),
+):
+    """
+    Get count of remodel jobs for the authenticated user.
+    Supports filtering by status.
+    """
+    if db_client.prisma is None:
+        await db_client.connect()
+    
+    # Build where clause
+    where_clause = {"userId": current_user["id"]}
+    if status:
+        if status not in ["queued", "running", "done", "failed"]:
+            raise HTTPException(status_code=400, detail="Invalid status. Must be one of: queued, running, done, failed")
+        where_clause["status"] = status
+    
+    # Get count
+    count = await db_client.prisma.remodeljob.count(where=where_clause)  # type: ignore
+    
+    return {"count": count, "status": status or "all"}

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import uuid
 from typing import Optional
+import logging
 
 import boto3
 from botocore.client import Config
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _get_s3_client():
@@ -43,9 +46,30 @@ def upload_bytes(
         filename = str(uuid.uuid4())
     key = f"{key_prefix}{filename}"
 
-    client.put_object(Bucket=settings.S3_BUCKET, Key=key, Body=data, ContentType=content_type)
+    # Upload object without ACL to support buckets with Object Ownership 'bucket owner enforced'
+    client.put_object(
+        Bucket=settings.S3_BUCKET,
+        Key=key,
+        Body=data,
+        ContentType=content_type,
+    )
 
-    # Public URL inference: if endpoint provided, use it; else default AWS pattern
+    # If requested, try to set ACL via a separate call; ignore if bucket disallows ACLs
+    if getattr(settings, "S3_PUBLIC_READ", False):
+        try:
+            client.put_object_acl(Bucket=settings.S3_BUCKET, Key=key, ACL="public-read")
+        except Exception as acl_err:  # pragma: no cover
+            logger.info("Skipping ACL public-read on %s: %s", key, str(acl_err))
+
+    # Prefer presigned URL when configured (works with private buckets)
+    if getattr(settings, "S3_RETURN_PRESIGNED", False):
+        return client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": settings.S3_BUCKET, "Key": key},
+            ExpiresIn=getattr(settings, "S3_SIGNED_URL_EXPIRY", 86400),
+        )
+
+    # Otherwise, build a public URL (assumes object is publicly readable)
     if settings.S3_ENDPOINT_URL:
         base = settings.S3_ENDPOINT_URL.rstrip("/")
         return f"{base}/{settings.S3_BUCKET}/{key}"

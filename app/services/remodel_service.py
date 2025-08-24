@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import List, Optional
 import os
+import base64
 
 import httpx
 
@@ -32,6 +33,7 @@ async def enqueue_remodel_job(
     if db_client.prisma is None:
         await db_client.connect()
 
+
     # Cap size to MAX_IMAGE_SIZE
     width = min(width, settings.MAX_IMAGE_SIZE)
     height = min(height, settings.MAX_IMAGE_SIZE)
@@ -41,13 +43,14 @@ async def enqueue_remodel_job(
         image_bytes,
         content_type=content_type,
         key_prefix="remodels/input/",
-        filename=f"{uuid.uuid4()}.png",
+        filename=f"{uuid.uuid4().hex[:16]}.png",
     )
 
     # Create job in DB (use relation connect for user; omit optional JSON when None)
     data: dict = {
+        "id": uuid.uuid4().hex[:16],
         "status": "queued",
-        "inputImageUrl": input_url,
+        "reference": input_url,
         "prompt": prompt,
         "style": style,
         "width": width,
@@ -78,13 +81,21 @@ async def process_job(job_id: str) -> None:
             data={"status": "running"},
         )
 
-        # Use OpenAI Images API to generate an edited image from the input image + prompt
+        # Use OpenAI Image Edit API
         out_bytes = await _call_openai_image_edit(
-            image_url=job.inputImageUrl,  # type: ignore[attr-defined]
-            prompt=job.prompt,
+            image_url=job.reference,  # type: ignore[attr-defined]
+            prompt=_compose_prompt(job.prompt, job.style, (job.items if isinstance(job.items, list) else None)),
             width=job.width,  # type: ignore[attr-defined]
             height=job.height,  # type: ignore[attr-defined]
         )
+        
+        # Use Google Gemini 2.0 Flash Image Generation (image-to-image) - COMMENTED OUT
+        # out_bytes = await generate_image_with_gemini(
+        #     image_url=job.reference,  # type: ignore[attr-defined]
+        #     prompt=_compose_prompt(job.prompt, job.style, (job.items if isinstance(job.items, list) else None)),
+        # )
+
+        
 
         # Upload image output
         output_url = upload_bytes(
@@ -96,12 +107,24 @@ async def process_job(job_id: str) -> None:
 
         await db_client.prisma.remodeljob.update(  # type: ignore
             where={"id": job_id},
-            data={"status": "done", "outputImageUrl": output_url},
+            data={"status": "done", "output": output_url},
         )
+        
+        # Deduct 1 credit from user if job is associated with a user
+        if job.userId:  # type: ignore[attr-defined]
+            await db_client.prisma.user.update(  # type: ignore
+                where={"id": job.userId},  # type: ignore[attr-defined]
+                data={"credits": {"decrement": 1}},
+            )
+            logger.info("Deducted 1 credit from user %s for completed job %s", job.userId, job_id)  # type: ignore[attr-defined]
     except Exception as e:
+        logger.exception("Error processing job %s: %s", job_id, str(e))
+        raw_message = f"{type(e).__name__}: {str(e)}"
+        # Truncate very long messages (e.g., embedded base64) to keep DB small
+        error_message = (raw_message[:500] + "... [truncated]") if len(raw_message) > 500 else raw_message
         await db_client.prisma.remodeljob.update(  # type: ignore
             where={"id": job_id},
-            data={"status": "failed", "error": str(e)},
+            data={"status": "failed", "error": error_message},
         )
 
 def _build_firefly_payload(
@@ -250,6 +273,63 @@ async def _async_sleep(seconds: float) -> None:
     await _asyncio.sleep(seconds)
 
 
+# --- Google Gemini 2.0 Flash Image Generation ---
+async def generate_image_with_gemini(
+    image_url: str,
+    prompt: str = "Remodel this interior space",
+
+) -> bytes:
+    """
+    Generate image using Gemini 2.0 Flash Preview.
+    Returns PNG bytes of the generated image.
+    """
+    if not settings.GEMINI_API_KEY:
+        raise ValueError("API key is required")
+    
+    # Download input image
+    async with httpx.AsyncClient(timeout=60) as client:
+        response = await client.get(image_url)
+        response.raise_for_status()
+        image_data = base64.b64encode(response.content).decode()
+    
+    # API request
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent"
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/png", "data": image_data}}
+            ]
+        }],
+        "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]}
+    }
+    
+    async with httpx.AsyncClient(timeout=120) as client:
+        response = await client.post(url, params={"key": settings.GEMINI_API_KEY}, json=payload)
+        response.raise_for_status()
+        data = response.json()
+    
+    # Extract image from response
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        for part in parts:
+            # Check for inline_data
+            if "inline_data" in part and "data" in part["inline_data"]:
+                image_b64 = part["inline_data"]["data"]
+                return base64.b64decode(image_b64)
+            # Check for inlineData (alternative format)
+            elif "inlineData" in part and "data" in part["inlineData"]:
+                image_b64 = part["inlineData"]["data"]
+                return base64.b64decode(image_b64)
+        
+        raise KeyError("No image found in response")
+    except (KeyError, IndexError) as e:
+        raise RuntimeError(f"Failed to extract image from response: {e}")
+
+
+
+
 # --- OpenAI Responses API Service ---
 async def _call_openai_response(
     *,
@@ -319,9 +399,9 @@ async def _call_openai_image_edit(
     client = OpenAI(api_key=api_key)
 
     # Provide image as file-like
-    import io, base64
+    import io
     file_obj = io.BytesIO(init_bytes)
-    file_obj.name = "init.png"
+    file_obj.name = "reference.png"
     try:
         # OpenAI Python SDK v1 uses `images.edit` (singular), not `edits`
         resp = client.images.edit(

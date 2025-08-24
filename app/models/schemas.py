@@ -49,8 +49,8 @@ class RemodelJobCreate(BaseModel):
 class RemodelJobOut(BaseModel):
     id: str
     status: str
-    inputImageUrl: str
-    outputImageUrl: Optional[str] = None
+    reference: str
+    output: Optional[str] = None
     error: Optional[str] = None
     prompt: Optional[str] = None
     style: Optional[str] = None

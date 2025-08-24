@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY_ID: str | None = getenv("S3_ACCESS_KEY_ID")
     S3_SECRET_ACCESS_KEY: str | None = getenv("S3_SECRET_ACCESS_KEY")
     S3_ENDPOINT_URL: str | None = getenv("S3_ENDPOINT_URL")
+    # Whether to set ACL public-read on uploaded objects (helpful for simple public CDN behavior)
+    S3_PUBLIC_READ: bool = getenv("S3_PUBLIC_READ", "true").lower() in ("1", "true", "yes")
+    # Whether to return presigned GET URLs for uploaded objects (good for buckets with ACLs disabled)
+    S3_RETURN_PRESIGNED: bool = getenv("S3_RETURN_PRESIGNED", "true").lower() in ("1", "true", "yes")
+    # Presigned URL expiry in seconds
+    S3_SIGNED_URL_EXPIRY: int = int(getenv("S3_SIGNED_URL_EXPIRY", "86400"))
+
+    # Google Gemini
+    GEMINI_API_KEY: str | None = getenv("GEMINI_API_KEY")
+    GEMINI_IMAGE_MODEL: str = getenv("GEMINI_IMAGE_MODEL")
 
     model_config = SettingsConfigDict(
         env_file=".env",

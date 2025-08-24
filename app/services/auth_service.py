@@ -70,8 +70,9 @@ async def register(req: RegisterRequest) -> AuthResponse:
     
     token_data = create_access_token(subject=created.id, email=created.email, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     return AuthResponse(
-        email=req.email,
+        email=created.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data["expires_at"]),
+        message="Account created successfully. A verification code has been sent to your email.",
     )
 
 
@@ -114,9 +115,8 @@ async def login(req: LoginRequest) -> AuthResponse:
     
     token_data = create_access_token(subject=db_user.id, email=db_user.email)
     return AuthResponse(
-        user=UserPublic(id=db_user.id, email=db_user.email, name=db_user.name, emailVerified=email_verified),
+        email=db_user.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data.get("expires_at")),
-
     )
 
 
@@ -169,9 +169,8 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
     logger.info("google login: user id=%s email=%s (DB)", db_user.id, db_user.email)
     token_data = create_access_token(subject=db_user.id, email=db_user.email)
     return AuthResponse(
-        user=UserPublic(id=db_user.id, email=db_user.email, name=db_user.name, emailVerified=email_verified_google),
+        email=db_user.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data.get("expires_at")),
-
     )
 
 

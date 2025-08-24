@@ -30,6 +30,7 @@ class UserPublic(BaseModel):
     email: EmailStr
     name: Optional[str] = None
     emailVerified: bool = False
+    credits: int = 1
 
 
 class VerifyEmailRequest(BaseModel):
@@ -42,5 +43,6 @@ class ResendCodeRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    user: UserPublic
+    email: EmailStr
     token: TokenResponse
+    message: Optional[str] = None
