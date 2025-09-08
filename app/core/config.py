@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str | None = getenv("SMTP_USERNAME")
     SMTP_PASSWORD: str | None = getenv("SMTP_PASSWORD")
     SMTP_FROM_EMAIL: str | None = getenv("SMTP_FROM_EMAIL")
+    # Mailgun settings
+    MAILGUN_API_KEY: str | None = getenv("MAILGUN_API_KEY")
+    MAILGUN_DOMAIN: str | None = getenv("MAILGUN_DOMAIN")
+    MAILGUN_FROM_EMAIL: str | None = getenv("MAILGUN_FROM_EMAIL")
     # Database
     DATABASE_URL: str | None = getenv("DATABASE_URL")
 
@@ -33,6 +37,8 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY_ID: str | None = getenv("S3_ACCESS_KEY_ID")
     S3_SECRET_ACCESS_KEY: str | None = getenv("S3_SECRET_ACCESS_KEY")
     S3_ENDPOINT_URL: str | None = getenv("S3_ENDPOINT_URL")
+    # CloudFront CDN
+    CLOUDFRONT_DOMAIN: str | None = getenv("CLOUDFRONT_DOMAIN")
     # Whether to set ACL public-read on uploaded objects (helpful for simple public CDN behavior)
     S3_PUBLIC_READ: bool = getenv("S3_PUBLIC_READ", "true").lower() in ("1", "true", "yes")
     # Whether to return presigned GET URLs for uploaded objects (good for buckets with ACLs disabled)
@@ -43,6 +49,11 @@ class Settings(BaseSettings):
     # Google Gemini
     GEMINI_API_KEY: str | None = getenv("GEMINI_API_KEY")
     GEMINI_IMAGE_MODEL: str = getenv("GEMINI_IMAGE_MODEL")
+
+    # Paystack
+    PAYSTACK_SECRET_KEY: str | None = getenv("PAYSTACK_SECRET_KEY")
+    PAYSTACK_PUBLIC_KEY: str | None = getenv("PAYSTACK_PUBLIC_KEY")
+    PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")
 
     model_config = SettingsConfigDict(
         env_file=".env",

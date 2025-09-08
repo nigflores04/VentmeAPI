@@ -18,23 +18,24 @@ model User {
   codeExpiresAt     DateTime?
   codeAttempts      Int      @default(0)
   createdAt         DateTime @default(now())
-  remodels          RemodelJob[]
+  generations       GenerationJob[]
   payments          Payment[]
+  subscriptions     Subscription[]
   credits           Int      @default(1)
 }
 
-model RemodelJob {
+model GenerationJob {
   id             String   @id @default(uuid())
   userId         String?
   user           User?    @relation(fields: [userId], references: [id])
   status         String   // queued | running | done | failed
-  reference  String
+  reference      String
   prompt         String?
-  style          String?
-  items          Json?
+  room_type      String?
+  style_preset   String?
   width          Int
   height         Int
-  output String?
+  output         String?
   error          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -44,11 +45,29 @@ model Payment {
   id                String   @id @default(uuid())
   userId            String
   user              User     @relation(fields: [userId], references: [id])
-  stripePaymentId   String   @unique
-  package           String   // starter | basic | premium | professional
-  amount            Int      // in cents
+  payment_reference String   @unique
+  plan              String?   // subscription plan
+  amount            Int      // in kobo
   credits           Int
-  status            String   // pending | processing | completed | failed | cancelled
+  status            String   // pending | processing | successful | failed | cancelled
+  description       String
   createdAt         DateTime @default(now())
   completedAt       DateTime?
+  isSubscription    Boolean  @default(false)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  subscriptionId    String?
+}
+
+model Subscription {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  plan              String   // subscription plan name
+  planCode          String   // Paystack plan code
+  status            String   // active | cancelled | expired
+  nextPaymentDate   DateTime?
+  lastPaymentDate   DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  payments          Payment[]
 }

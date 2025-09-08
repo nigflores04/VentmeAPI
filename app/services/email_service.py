@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import os
 import secrets
-import smtplib
+import requests
 from datetime import datetime, timedelta, timezone
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from typing import Optional
 
 from app.core.config import settings
@@ -21,21 +20,30 @@ def get_code_expiration() -> datetime:
 
 
 async def send_verification_email(email: str, code: str, name: Optional[str] = None) -> bool:
-    """Send verification code email via SMTP"""
-    if not all([settings.SMTP_HOST, settings.SMTP_USERNAME, settings.SMTP_PASSWORD, settings.SMTP_FROM_EMAIL]):
-        print(f"Email service not configured - would send code {code} to {email}")
+    """Send verification code email via Mailgun REST API"""
+    mailgun_api_key = settings.MAILGUN_API_KEY
+    mailgun_domain = settings.MAILGUN_DOMAIN
+    from_email = settings.SMTP_FROM_EMAIL
+    
+    if not mailgun_api_key or not mailgun_domain or not from_email:
+        print(f"Mailgun not configured - would send code {code} to {email}")
         return True  # Return success for development
     
     try:
-        # Create message
-        msg = MIMEMultipart()
-        msg['From'] = settings.SMTP_FROM_EMAIL
-        msg['To'] = email
-        msg['Subject'] = "Verify your Ventics AI account"
-        
         # Email body
         greeting = f"Hi {name}," if name else "Hi,"
-        body = f"""
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Verify your Ventics AI account</h2>
+            <p>{greeting}</p>
+            <p>Your verification code is: <strong style="font-size: 18px; color: #007bff;">{code}</strong></p>
+            <p>This code will expire in 10 minutes.</p>
+            <p>If you didn't request this code, please ignore this email.</p>
+            <p>Best regards,<br>The Ventics AI Team</p>
+        </div>
+        """
+        
+        text_content = f"""
 {greeting}
 
 Your verification code is: {code}
@@ -45,19 +53,29 @@ This code will expire in 10 minutes.
 If you didn't request this code, please ignore this email.
 
 Best regards,
-Ventics AI Team
-"""
+The Ventics AI Team
+        """
         
-        msg.attach(MIMEText(body, 'plain'))
+        # Send email via Mailgun API
+        mailgun_url = f"https://api.mailgun.net/v3/{mailgun_domain}/messages"
+        response = requests.post(
+            mailgun_url,
+            auth=("api", mailgun_api_key),
+            data={
+                "from": from_email,
+                "to": email,
+                "subject": "Verify your Ventics AI account",
+                "text": text_content,
+                "html": html_content
+            }
+        )
         
-        # Send email
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.starttls()
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-        
-        print(f"Verification email sent to {email}")
-        return True
+        if response.status_code == 200:
+            print(f"Verification email sent to {email}")
+            return True
+        else:
+            print(f"Mailgun API error: {response.status_code} - {response.text}")
+            return False
         
     except Exception as e:
         print(f"Failed to send email to {email}: {e}")

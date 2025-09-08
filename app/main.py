@@ -3,10 +3,39 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
+import logging
+import sys
+
 from app.core.config import settings
 from app.api.v1.routes import api_router
 from app.api.v1.endpoints import health
 from app.db.client import connect as db_connect, disconnect as db_disconnect
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(name)s - %(message)s',
+    # format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# Get the root logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Set specific loggers to appropriate levels
+logging.getLogger("app.services.generations_service").setLevel(logging.INFO)
+logging.getLogger("app.services.storage_service").setLevel(logging.INFO)
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("fastapi").setLevel(logging.INFO)
+
+# Reduce noise from third-party libraries
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("boto3").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("aioboto3").setLevel(logging.WARNING)
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
 
@@ -71,17 +100,20 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):  # type: ignore[override]
-    # Avoid leaking internals; log can be added later
+    # Log unhandled exceptions
+    logger.exception(f"Unhandled exception: {str(exc)}")
     return _error_envelope(status_code=500, message=str(exc))
 
 
 @app.on_event("startup")
 async def on_startup():
+    logger.info("Starting Ventics AI API")
     if settings.DATABASE_URL:
         await db_connect()
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
+    logger.info("Shutting down Ventics AI API")
     if settings.DATABASE_URL:
         await db_disconnect()

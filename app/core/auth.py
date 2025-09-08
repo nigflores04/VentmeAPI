@@ -70,9 +70,9 @@ async def get_current_user_required(credentials: HTTPAuthorizationCredentials = 
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Ensure DB connection
-    if db_client.prisma is None:
-        await db_client.connect()
+    # # Ensure DB connection
+    # if db_client.prisma is None:
+    #     await db_client.connect()
     
     user = await db_client.prisma.user.find_unique(where={"id": user_id})  # type: ignore
     if not user:

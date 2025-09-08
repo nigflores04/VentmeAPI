@@ -6,46 +6,59 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 
-class CreditPackage(str, Enum):
-    STARTER = "starter"      # 10 credits - $9.99
-    BASIC = "basic"          # 25 credits - $19.99
-    PREMIUM = "premium"      # 60 credits - $39.99
-    PROFESSIONAL = "professional"  # 150 credits - $79.99
+class SubscriptionPlan(str, Enum):
+    FREE = "free"            # 5 credits - ₦0
+    STARTER = "starter"      # 10 credits - ₦3,999.00
+    BASIC = "basic"          # 30 credits - ₦7,999.00
+    PREMIUM = "premium"      # 50 credits - ₦11,999.00
+    PROFESSIONAL = "professional"  # 150 credits - ₦29,999.00
 
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
-    COMPLETED = "completed"
+    SUCCESSFUL = "success"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
 
+class SubscriptionStatus(str, Enum):
+    ACTIVE = "active"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
+class CreateSubscriptionRequest(BaseModel):
+    plan: SubscriptionPlan
+    callback_url: Optional[str] = None
+
+
 class CreatePaymentRequest(BaseModel):
-    package: CreditPackage
-    return_url: Optional[str] = None
+    amount: int
+    callback_url: Optional[str] = None
 
 
-class PaymentIntentResponse(BaseModel):
-    payment_intent_id: str
-    client_secret: str
-    amount: int  # in cents
-    credits: int
-    package: CreditPackage
+class InitializePaymentResponse(BaseModel):
+    redirect_url: str
+    reference: str
+    amount: int  # in kobo
+    plan: Optional[SubscriptionPlan] = None
 
 
 class PaymentConfirmRequest(BaseModel):
-    payment_intent_id: str
+    reference: str
 
 
 class PaymentHistoryItem(BaseModel):
     id: str
-    package: CreditPackage
-    amount: int  # in cents
+    plan: Optional[SubscriptionPlan] = None
+    amount: int  # in kobo
     credits: int
     status: PaymentStatus
     created_at: datetime
     completed_at: Optional[datetime] = None
+    is_subscription: bool = False
+    reference: Optional[str] = None
 
 
 class PaymentHistoryResponse(BaseModel):
@@ -53,14 +66,42 @@ class PaymentHistoryResponse(BaseModel):
     total_count: int
 
 
-class CreditPackageInfo(BaseModel):
-    package: CreditPackage
+class SubscriptionPlanInfo(BaseModel):
+    plan: SubscriptionPlan
     credits: int
-    price_cents: int
+    price: int
     price_display: str
     description: str
     popular: bool = False
 
 
 class PricingResponse(BaseModel):
-    packages: List[CreditPackageInfo]
+    plans: List[SubscriptionPlanInfo]
+
+
+class SubscriptionDetails(BaseModel):
+    id: str
+    plan: SubscriptionPlan
+    plan_code: str
+    status: SubscriptionStatus
+    next_payment_date: Optional[datetime] = None
+    created_at: datetime
+    last_payment_date: Optional[datetime] = None
+
+
+class SubscriptionResponse(BaseModel):
+    subscription: SubscriptionDetails
+
+
+class SubscriptionListResponse(BaseModel):
+    subscriptions: List[SubscriptionDetails]
+    total_count: int
+
+
+class CancelSubscriptionRequest(BaseModel):
+    subscription_id: str
+
+
+class CancelSubscriptionResponse(BaseModel):
+    success: bool
+    message: str

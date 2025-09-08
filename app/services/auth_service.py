@@ -20,7 +20,7 @@ from app.models.auth_schemas import (
     VerifyEmailRequest,
     ResendCodeRequest,
 )
-import app.db.client as db_client
+from app.db import client as db_client
 from os import getenv
 from app.services.verification_service import send_verification_code, verify_email_code
 
@@ -106,14 +106,15 @@ async def login(req: LoginRequest) -> AuthResponse:
     
     # Use getattr with default False for backward compatibility
     email_verified = getattr(db_user, 'emailVerified', False)
-    if not email_verified and db_user.provider == "password":
-        try:
-            await send_verification_code(db_user.email, db_user.name)
-            logger.info("Verification reminder sent to %s", db_user.email)
-        except Exception as e:
-            logger.error("Failed to send verification reminder to %s: %s", db_user.email, e)
+    # DISABLED: Email verification temporarily disabled for development
+    # if not email_verified and db_user.provider == "password":
+    #     try:
+    #         await send_verification_code(db_user.email, db_user.name)
+    #         logger.info("Verification reminder sent to %s", db_user.email)
+    #     except Exception as e:
+    #         logger.error("Failed to send verification reminder to %s: %s", db_user.email, e)
     
-    token_data = create_access_token(subject=db_user.id, email=db_user.email)
+    token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(days=1))
     return AuthResponse(
         email=db_user.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data.get("expires_at")),
@@ -167,7 +168,7 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
         email_verified_google = True
     
     logger.info("google login: user id=%s email=%s (DB)", db_user.id, db_user.email)
-    token_data = create_access_token(subject=db_user.id, email=db_user.email)
+    token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(days=1))
     return AuthResponse(
         email=db_user.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data.get("expires_at")),

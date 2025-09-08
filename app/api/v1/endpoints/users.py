@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.auth import get_current_user_required
-from app.models.schemas import RemodelJobOut
+from app.models.schemas import GenerationJobOut
 from app.models.auth_schemas import UserPublic
 from app.db import client as db_client
 import logging
@@ -30,8 +30,8 @@ async def get_current_user_details(
     )
 
 
-@router.get("/me/remodels", response_model=List[RemodelJobOut])
-async def get_user_remodel_jobs(
+@router.get("/me/generations", response_model=List[GenerationJobOut])
+async def get_user_generations(
     current_user: dict = Depends(get_current_user_required),
     status: Optional[str] = Query(None, description="Filter by status: queued, running, done, failed"),
     limit: int = Query(20, ge=1, le=100, description="Number of jobs to return (1-100)"),
@@ -48,35 +48,34 @@ async def get_user_remodel_jobs(
             raise HTTPException(status_code=400, detail="Invalid status. Must be one of: queued, running, done, failed")
         where_clause["status"] = status
     
-    # Fetch user's remodel jobs with pagination
-    jobs = await db_client.prisma.remodeljob.find_many(
+    # Fetch user's generation jobs with pagination
+    jobs = await db_client.prisma.generationjob.find_many(
         where=where_clause,
         take=limit,
         skip=offset,
+        order={"createdAt": "desc"},
     )
     
     # Convert to response format
     result = []
     for job in jobs:
-        items = job.items if isinstance(job.items, list) else None
         result.append({
             "id": job.id,
             "status": job.status,
             "reference": job.reference,
             "output": job.output,
             "prompt": job.prompt,
-            "style": job.style,
-            "items": items,
-            "width": job.width,
-            "height": job.height,
+            "room_type": job.room_type,
+            "style_preset": job.style_preset,
+            "user": job.userId,
         })
     
     logger.info("Retrieved %d remodel jobs for user %s", len(result), current_user["id"])
     return result
 
 
-@router.get("/me/remodels/count")
-async def get_user_remodel_jobs_count(
+@router.get("/me/generations/count")
+async def get_user_generations_jobs_count(
     current_user: dict = Depends(get_current_user_required),
     status: Optional[str] = Query(None, description="Filter by status: queued, running, done, failed"),
 ):
@@ -95,6 +94,6 @@ async def get_user_remodel_jobs_count(
         where_clause["status"] = status
     
     # Get count
-    count = await db_client.prisma.remodeljob.count(where=where_clause)  # type: ignore
+    count = await db_client.prisma.generationjob.count(where=where_clause)  # type: ignore
     
     return {"count": count, "status": status or "all"}
