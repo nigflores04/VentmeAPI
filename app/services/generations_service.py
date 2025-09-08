@@ -17,7 +17,6 @@ from app.core.config import settings
 from app.db import client as db_client
 from app.models.schemas import GenerationJobOut
 from app.services.storage_service import upload_bytes
-from prisma import Json 
 
 # Download the image from URL first
 import aiohttp
