@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-import app.db.client as db_client
+from  app.db import client as db_client
 from app.core.config import settings
 from app.services.email_service import (
     generate_verification_code,
@@ -19,10 +19,7 @@ logger = logging.getLogger(__name__)
 
 async def send_verification_code(email: str, name: Optional[str] = None) -> bool:
     """Generate and send verification code to user"""
-    if not settings.DATABASE_URL or not db_client.prisma:
-        raise ValueError("Database not configured")
-    
-    # Find user
+
     user = await db_client.prisma.user.find_unique(where={"email": email})
     if not user:
         raise ValueError("User not found")
@@ -61,15 +58,10 @@ async def send_verification_code(email: str, name: Optional[str] = None) -> bool
 
 async def verify_email_code(email: str, code: str) -> bool:
     """Verify the email verification code"""
-    if not settings.DATABASE_URL or not db_client.prisma:
-        raise ValueError("Database not configured")
-    
-    # Find user
     user = await db_client.prisma.user.find_unique(where={"email": email})
     if not user:
         raise ValueError("User not found")
     
-    # Check if already verified
     user_email_verified = getattr(user, 'emailVerified', False)
     if user_email_verified:
         return True

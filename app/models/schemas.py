@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
@@ -17,43 +17,59 @@ class ImageGenResponse(BaseModel):
     model: str
 
 
-class RemodelRequest(BaseModel):
+class GenerationRequest(BaseModel):
     prompt: Optional[str] = None
-    style: Optional[str] = Field(
+    room_type: Optional[str] = Field(
         default=None,
-        description="Desired interior style, e.g., 'modern', 'minimalist', 'scandinavian'",
+        description="Room type, e.g., 'Bedroom', 'Living room', 'Office', 'Studio', 'Kitchen', 'Bathroom'",
     )
-    items: Optional[list[str]] = Field(
+    style_preset: Optional[str] = Field(
         default=None,
-        description="Optional list of furniture/interior items to include",
+        description="Style preset, e.g., 'Minimalist', 'Cozy', 'Modern', 'Scandinavian', 'Industrial'",
     )
     width: int = 768
     height: int = 512
 
 
-class RemodelResponse(BaseModel):
+class GenerationResponse(BaseModel):
     image_base64: str
     width: int
     height: int
     model: str
 
 
-class RemodelJobCreate(BaseModel):
+class GenerationJobCreate(BaseModel):
     prompt: Optional[str] = None
-    style: Optional[str] = None
-    items: Optional[list[str]] = None
+    room_type: Optional[str] = None
+    style_preset: Optional[str] = None
     width: int = 1024
     height: int = 1024
 
 
-class RemodelJobOut(BaseModel):
+class GenerationJobOut(BaseModel):
     id: str
     status: str
     reference: str
     output: Optional[str] = None
-    error: Optional[str] = None
     prompt: Optional[str] = None
-    style: Optional[str] = None
-    items: Optional[list[str]] = None
-    width: int
-    height: int
+    room_type: Optional[str] = None
+    style_preset: Optional[str] = None
+    user: Optional[str] = None
+
+
+class GenerationVariationsResponse(BaseModel):
+    success: bool = True
+    message: str = "Generation variations created successfully"
+    prompt: Optional[str] = None
+    room_type: Optional[str] = None
+    style_preset: Optional[str] = None
+    variations: List[GenerationJobOut] = []
+
+
+class FileUploadResponse(BaseModel):
+    success: bool = True
+    message: str = "File uploaded successfully"
+    url: str
+    filename: str
+    content_type: str
+    size_bytes: int
