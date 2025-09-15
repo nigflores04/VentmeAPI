@@ -72,3 +72,12 @@ model Subscription {
   updatedAt         DateTime @updatedAt
   payments          Payment[]
 }
+
+model EmailSubscriber {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  source      String?  // "website" | "api" | "landing_page"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}

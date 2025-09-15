@@ -141,7 +141,7 @@ async def create_generation_job(
         # }
     except Exception as e:
         logger.exception("Error in create_generation_job: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
 
 @router.post("/variations", response_model=GenerationVariationsResponse)
@@ -304,7 +304,7 @@ async def create_generation_variations(
             
     except Exception as e:
         logger.exception("Error in create_generation_variations: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
 
 @router.get("/{job_id}", response_model=GenerationJobOut)

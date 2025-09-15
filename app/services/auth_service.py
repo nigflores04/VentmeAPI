@@ -114,7 +114,7 @@ async def login(req: LoginRequest) -> AuthResponse:
     #     except Exception as e:
     #         logger.error("Failed to send verification reminder to %s: %s", db_user.email, e)
     
-    token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(days=1))
+    token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(weeks=1))
     return AuthResponse(
         email=db_user.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data.get("expires_at")),
@@ -168,7 +168,7 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
         email_verified_google = True
     
     logger.info("google login: user id=%s email=%s (DB)", db_user.id, db_user.email)
-    token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(days=1))
+    token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(weeks=1))
     return AuthResponse(
         email=db_user.email,
         token=TokenResponse(access_token=token_data["token"], expires_at=token_data.get("expires_at")),

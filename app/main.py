@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.api.v1.routes import api_router
 from app.api.v1.endpoints import health
 from app.db.client import connect as db_connect, disconnect as db_disconnect
+# from app.db import client as db_client
 
 # Configure logging
 logging.basicConfig(
@@ -87,6 +88,7 @@ def _error_envelope(*, status_code: int, message: str, code: str | None = None) 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):  # type: ignore[override]
     # exc.detail can be str or any; standardize to string
+    print(exc.detail)
     message = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
     return _error_envelope(status_code=exc.status_code, message=message)
 

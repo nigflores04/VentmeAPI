@@ -21,3 +21,9 @@ async def disconnect() -> None:
     global prisma
     if prisma is not None and prisma.is_connected():  # type: ignore[attr-defined]
         await prisma.disconnect()  # type: ignore[func-returns-value]
+
+
+async def get_db():
+    """FastAPI dependency to get database connection"""
+    await connect()
+    return prisma
