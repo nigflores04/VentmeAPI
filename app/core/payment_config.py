@@ -34,3 +34,9 @@ SUBSCRIPTION_PLANS: Dict[SubscriptionPlan, Dict] = {
     #     "popular": False
     # }
 }
+
+
+
+def get_plan_details(plan: SubscriptionPlan) -> Dict:
+    """Get the complete configuration for a subscription plan"""
+    return SUBSCRIPTION_PLANS.get(plan, {})

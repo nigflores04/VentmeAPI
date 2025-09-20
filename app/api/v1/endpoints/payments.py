@@ -136,4 +136,4 @@ async def verify_payment_by_reference(reference: str):
         else:
             return {"message": "Payment failed or was cancelled", "success": False, "status": payment_status.value}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail=str(e))

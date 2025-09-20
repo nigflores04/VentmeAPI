@@ -23,12 +23,15 @@ model User {
   payments          Payment[]
   subscriptions     Subscription[]
   credits           Int      @default(1)
+  projects          Project[]
 }
 
 model GenerationJob {
   id             String   @id @default(uuid())
   userId         String?
   user           User?    @relation(fields: [userId], references: [id])
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id])
   status         String   // queued | running | done | failed
   reference      String
   prompt         String?
@@ -71,4 +74,32 @@ model Subscription {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   payments          Payment[]
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  
+  // Generation parameters that get updated as user makes changes
+  referenceImage String?  // Current reference image URL
+  prompt         String?  // Current prompt
+  room_type       String?  // Current room type
+  style_preset    String?  // Current style preset
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  generations GenerationJob[]
+}
+
+model EmailSubscriber {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String?
+  source      String?  // "website" | "api" | "landing_page"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }

@@ -12,6 +12,7 @@ import logging
 import time
 from app.db import client as db_client
 import asyncio
+from app.services.project_service import ProjectService
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ async def create_generation_job(
     width: int = Form(1024),
     height: int = Form(1024),
     wait: bool = Form(True),
+    project_id: Optional[str] = Form(None, description="Optional project ID to associate this generation with"),
     current_user: Optional[dict] = Depends(get_current_user_optional),
 ):
     try:
@@ -42,6 +44,8 @@ async def create_generation_job(
 
         # Check user credits and apply restrictions for anonymous users
         user_id = None
+        auto_created_project_id = None
+        
         if current_user:
             user_id = current_user["id"]
             if current_user["credits"] < 1:
@@ -49,6 +53,25 @@ async def create_generation_job(
                     status_code=402,  # Payment Required
                     detail="Insufficient credits. You need at least 1 credit to create a generation job."
                 )
+            
+            # Auto-create project if none provided and user is authenticated
+            if not project_id:
+                from app.services.project_service import ProjectService
+                from app.models.project_schemas import ProjectCreate
+                from datetime import datetime
+                
+                auto_project_name = f"Design Session - {datetime.now().strftime('%b %d, %Y at %I:%M %p')}"
+                auto_project = ProjectCreate(
+                    name=auto_project_name,
+                    description="Auto-created project for generation session",
+                    style_preset=style_preset,
+                    room_type=room_type,
+                    referenceImage=image,
+                )
+                
+                created_project = await ProjectService.create_project(user_id, auto_project)
+                auto_created_project_id = created_project.id
+                project_id = auto_created_project_id
         else:
             # Anonymous user restrictions
             if style_preset is not None:
@@ -85,6 +108,7 @@ async def create_generation_job(
             width=width,
             height=height,
             user_id=user_id,
+            project_id=project_id,
         )
 
         logger.info("Enqueued generation job id=%s status=%s", job["id"], job["status"]) 
@@ -123,6 +147,7 @@ async def create_generation_job(
                 "room_type": final.room_type,
                 "style_preset": final.style_preset,
                 "user": final.userId,
+                "project_id": final.projectId,
             }
 
         # Schedule background processing
@@ -141,7 +166,7 @@ async def create_generation_job(
         # }
     except Exception as e:
         logger.exception("Error in create_generation_job: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
 
 @router.post("/variations", response_model=GenerationVariationsResponse)
@@ -155,6 +180,7 @@ async def create_generation_variations(
     width: int = Form(1024),
     height: int = Form(1024),
     num_variations: int = Form(3, description="Number of design variations to generate (1-5)"),
+    project_id: Optional[str] = Form(None, description="Optional project ID to associate this generation with"),
     current_user: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
@@ -175,19 +201,19 @@ async def create_generation_variations(
 
         # content_type = image.content_type or "image/png"
         # data = await image.read()
-        logger.info("/v1/generations/variations POST received: content_type=%s, variations=%d", 
-                   # content_type, 
+        logger.info("/v1/generations/variations POST received: variations=%d", 
                    num_variations)
 
         # Check user credits and apply restrictions for anonymous users
         user_id = None
+        
         if current_user:
             user_id = current_user["id"]
             if current_user["credits"] < num_variations:
                 raise HTTPException(
                     status_code=402,  # Payment Required
                     detail=f"Insufficient credits. You need at least {num_variations} credits to create {num_variations} variations."
-                )
+                )  
         else:
             # Anonymous users can only generate 1 variation
             if num_variations > 1:
@@ -226,15 +252,14 @@ async def create_generation_variations(
         for i in range(num_variations):
             # Create a job for each variation
             job = await enqueue_generation_job(
-                # image_bytes=data,
-                # content_type=content_type,
                 image_url=image,
                 prompt=prompt,
                 room_type=room_type,
                 style_preset=style_preset,
                 width=width,
                 height=height,
-                user_id=user_id,
+                user_id=current_user["id"] if current_user else None,
+                project_id=project_id,
             )
             job_ids.append(job["id"])
             logger.info(f"Created variation job")
@@ -256,15 +281,28 @@ async def create_generation_variations(
                     logger.warning(f"Job completed with status {final.status} but no output URL")
                     return None
                 
+                # Add generation to project if both projectId and userId are present
+                if project_id and user_id:
+                    try:
+                        await ProjectService.add_generation_to_project(
+                            project_id=project_id,
+                            generation_id=final.id,
+                            user_id=user_id
+                        )
+                        logger.info(f"Added generation {final.id} to project {project_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to add generation {final.id} to project {project_id}: {str(e)}")
+                
                 return {
                     "id": final.id,
                     "status": final.status,
                     "reference": final.reference,
                     "output": final.output,
-                    "prompt": final.prompt,
-                    "room_type": final.room_type,
-                    "style_preset": final.style_preset,
+                    "prompt": prompt,
+                    "room_type": room_type,
+                    "style_preset": style_preset,
                     "user": final.userId,
+                    "project_id": project_id,
                 }
             except Exception as e:
                 logger.error(f"Error processing job {job_id}: {str(e)}")
@@ -292,6 +330,23 @@ async def create_generation_variations(
         
         logger.info(f"Variations summary: {successful_jobs} successful, {failed_jobs} failed, total time: {total_time:.2f}s")
             
+
+
+        # if project_id:
+        #     logger.info("Updating project %s with generation parameters", project_id)
+        #     from app.services.project_service import ProjectService
+        #     success = await ProjectService.update_project_from_generation(
+        #         project_id,
+        #        {
+        #         "referenceImage": image,
+        #         "prompt": prompt,
+        #         "room_type": room_type,
+        #         "style_preset": style_preset,  
+        #         "generations": variation_jobs 
+        #        }
+        #     )
+        #     logger.info("Project update result: %s", success)
+
         # Return combined response with all variations
         return {
             "success": True,
@@ -299,12 +354,13 @@ async def create_generation_variations(
             "prompt": prompt,
             "room_type": room_type,
             "style_preset": style_preset,
+            "project_id": project_id,
             "variations": variation_jobs
         }
             
     except Exception as e:
         logger.exception("Error in create_generation_variations: %s", e)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=e.status_code, detail=str(e))
 
 
 @router.get("/{job_id}", response_model=GenerationJobOut)
@@ -325,4 +381,5 @@ async def get_generation_job(job_id: str):
         "room_type": job.room_type,
         "style_preset": job.style_preset,
         "user": job.userId,
+        "project_id": job.projectId,
     }

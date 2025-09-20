@@ -63,6 +63,7 @@ class GenerationVariationsResponse(BaseModel):
     prompt: Optional[str] = None
     room_type: Optional[str] = None
     style_preset: Optional[str] = None
+    project_id: Optional[str] = None
     variations: List[GenerationJobOut] = []
 
 

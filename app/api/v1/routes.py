@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, generations, users, payments, subscriptions, uploads, downloads, plans
+from app.api.v1.endpoints import auth, generations, users, payments, subscriptions, uploads, downloads, plans, emails, projects
 
 api_router = APIRouter()
 
@@ -12,3 +12,5 @@ api_router.include_router(subscriptions.router)
 api_router.include_router(uploads.router)
 api_router.include_router(downloads.router)
 api_router.include_router(plans.router)
+api_router.include_router(emails.router)
+api_router.include_router(projects.router)

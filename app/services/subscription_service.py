@@ -12,6 +12,7 @@ from app.models.payment_schemas import (
     SubscriptionPlan,
     PaymentStatus
 )
+from app.core.payment_config import get_plan_details
 
 logger = logging.getLogger(__name__)
 
@@ -166,9 +167,6 @@ async def get_active_subscription(user_id: str) -> Optional[SubscriptionDetails]
                 "gte": datetime.now().replace(day=1) # Current month
             }
         },
-        order_by={
-            "completedAt": "desc"
-        },
         take=1
     )
     
@@ -177,23 +175,25 @@ async def get_active_subscription(user_id: str) -> Optional[SubscriptionDetails]
     
     payment = active_payments[0]
     
-    # Generate plan code from plan name
+    #  plan code from plan name
     plan = SubscriptionPlan(payment.plan)
     plan_code = f"{plan.value}_monthly"
     
-    # Calculate next payment date (30 days from completion date)
+    # Get credits for the plan
+    plan_details = get_plan_details(plan)
+    credits = plan_details.get("credits", 0)
     next_payment_date = payment.completedAt + timedelta(days=30) if payment.completedAt else None
     
     return SubscriptionDetails(
         id=payment.id,
         plan=SubscriptionPlan(payment.plan),
         plan_code=plan_code,
+        credits=credits, 
         status=SubscriptionStatus.ACTIVE,
         next_payment_date=next_payment_date,
         created_at=payment.createdAt,
         last_payment_date=payment.completedAt
     )
-
 
 async def cancel_subscription(subscription_id: str) -> bool:
     """Cancel a subscription"""

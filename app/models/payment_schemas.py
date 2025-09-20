@@ -83,6 +83,7 @@ class SubscriptionDetails(BaseModel):
     id: str
     plan: SubscriptionPlan
     plan_code: str
+    credits: int
     status: SubscriptionStatus
     next_payment_date: Optional[datetime] = None
     created_at: datetime
