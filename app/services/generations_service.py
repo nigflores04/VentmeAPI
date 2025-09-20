@@ -24,6 +24,7 @@ import tempfile
 import os
 from pprint import pprint
 import asyncio
+from app.services.project_service import ProjectService
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,8 @@ async def enqueue_generation_job(
     style_preset: Optional[str],
     width: int,
     height: int,
-    user_id: Optional[str] = None,
+    user_id: Optional[str],
+    project_id: Optional[str],
 ) -> dict:
     if not settings.S3_BUCKET:
         raise RuntimeError("S3 not configured")
@@ -54,13 +56,6 @@ async def enqueue_generation_job(
     width = min(width, settings.MAX_IMAGE_SIZE)
     height = min(height, settings.MAX_IMAGE_SIZE)
 
-    # Upload input to S3
-    # input_url = upload_bytes(
-    #     image_bytes,
-    #     content_type=content_type,
-    #     key_prefix="generations/input/",
-    #     filename=f"{uuid.uuid4().hex[:16]}.png",
-    # )
 
     # Create job in DB (use relation connect for user)
     data: dict = {
@@ -72,14 +67,46 @@ async def enqueue_generation_job(
         "style_preset": style_preset,
         "width": width,
         "height": height,
+        # "userId": user_id,
+        # "projectId": project_id,
     }
+
+    print("User ID being passed: %s", user_id)
+    print("Project ID being passed: %s", project_id)
     if user_id:
         data["user"] = {"connect": {"id": user_id}}
+        # data["userId"] = {"connect": {"id": user_id}}
+    if project_id:
+        data["project"] = {"connect": {"id": project_id}}
+        # data["projectId"] = {"connect": {"id": project_id}}
 
     logger.info("Creating GenerationJob with data keys=%s", list(data.keys()))
-    job = await db_client.prisma.generationjob.create(  # type: ignore
-        data=data
-    )
+    logger.info("Project ID being passed: %s", project_id)
+    
+    try:
+        job = await db_client.prisma.generationjob.create(  # type: ignore
+            data=data
+        )
+        logger.info("GenerationJob created successfully with ID: %s", job.id)
+        
+        # If this generation is associated with a project, update the project's parameters
+        if project_id:
+
+            data["projectId"] = project_id
+            logger.info("Updating project %s with generation parameters", project_id)
+            
+            success = await ProjectService.update_project_from_generation(
+                project_id,
+                image_url,
+                prompt,
+                room_type,
+                style_preset
+            )
+            logger.info("Project update result: %s", success)
+    except Exception as e:
+        logger.error("Error creating GenerationJob: %s", str(e))
+        raise
+    
     return job.model_dump()  # type: ignore[attr-defined]
 
 
@@ -198,14 +225,18 @@ def _compose_prompt(
     
     # Start with the base instruction to use the provided image
     prompt_parts: List[str] = []
+    prompt_parts.append("Using the provided image of an interior space, ")
+    prompt_parts.append("Generate a stunning, high-end, photorealistic interior design remodel.")
+
 
     if text_input:
         # If specific text_input is provided, integrate it directly
-        prompt_parts.append("Using the provided image of an interior space, ")
         if room_type:
             prompt_parts.append(f"specifically a {room_type}, ")
         if style_preset:
             prompt_parts.append(f"in a {style_preset} style, ")
+
+        # prompt_parts.append("Completely **strip and replace** all furnishings, decor, flooring, wall surfaces, and lighting from the reference image. **Preserve the architectural integrity of the room, including all windows, doors, passages, and rigid structural elements.**")
         prompt_parts.append(f"make the following change: {text_input}.")
         prompt_parts.append(" Ensure the new elements integrate seamlessly with the existing environment.")
         
@@ -228,7 +259,8 @@ def _compose_prompt(
             # Default to the desired aesthetic if no style is given
             prompt_parts.append("to be exceptionally functional yet deeply personal. Create a profoundly calming, sophisticated atmosphere by using a curated selection of artisanal furniture, luxurious materials, and minimalist decor. ")
 
-        prompt_parts.append("The final image should showcase impeccable attention to detail, cinematic lighting, and a magazine-quality aesthetic. All new elements should be harmonious and brand new, reflecting a complete transformation.")
+    
+    prompt_parts.append("The final image should showcase impeccable attention to detail, cinematic lighting, and a magazine-quality aesthetic. All new elements should be harmonious and brand new, reflecting a complete transformation.")
         
     return " ".join(prompt_parts).strip()
 
