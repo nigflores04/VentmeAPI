@@ -1,8 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
-from os import getenv
+from os import getenv, environ
 
-load_dotenv()
+load_dotenv(override=True)
 
 class Settings(BaseSettings):
     APP_NAME: str = "Ventics AI API"
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     S3_SIGNED_URL_EXPIRY: int = int(getenv("S3_SIGNED_URL_EXPIRY", "86400"))
 
     # Google Gemini
-    GEMINI_API_KEY: str | None = getenv("GEMINI_API_KEY")
+    GEMINI_API_KEY: str | None = None
     GEMINI_IMAGE_MODEL: str = getenv("GEMINI_IMAGE_MODEL")
 
     # Paystack

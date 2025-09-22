@@ -22,9 +22,11 @@ from app.services.storage_service import upload_bytes
 import aiohttp
 import tempfile
 import os
-from pprint import pprint
+from dotenv import load_dotenv
 import asyncio
 from app.services.project_service import ProjectService
+
+load_dotenv(override=True)
 
 
 logger = logging.getLogger(__name__)
@@ -367,7 +369,10 @@ async def generate_image_with_gemini_flash(
             
             # Initialize Gemini client
             logger.debug("Initializing Gemini client")
+            logger.debug(f"Gemini API key: {settings.GEMINI_API_KEY}")
+
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            # client = genai.Client(api_key="AIzaSyBqjU_XIH3Ag01tKoMRgsr9HANG_n4PM6k")
             
             # Open the downloaded image
             try:
@@ -381,6 +386,7 @@ async def generate_image_with_gemini_flash(
             # Start the generation job
             logger.debug(f"Sending request to Gemini API with model: {settings.GEMINI_IMAGE_MODEL}")
             try:
+
                 response = client.models.generate_content(
                     model=settings.GEMINI_IMAGE_MODEL,
                     contents=[image, prompt],
