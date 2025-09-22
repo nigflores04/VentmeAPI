@@ -5,12 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 import logging
 import sys
-
 from app.core.config import settings
 from app.api.v1.routes import api_router
 from app.api.v1.endpoints import health
 from app.db.client import connect as db_connect, disconnect as db_disconnect
 # from app.db import client as db_client
+
 
 # Configure logging
 logging.basicConfig(
