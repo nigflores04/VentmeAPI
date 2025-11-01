@@ -91,7 +91,7 @@ class SubscriptionDetails(BaseModel):
 
 
 class SubscriptionResponse(BaseModel):
-    subscription: SubscriptionDetails
+    subscription: Optional[SubscriptionDetails] = None
 
 
 class SubscriptionListResponse(BaseModel):

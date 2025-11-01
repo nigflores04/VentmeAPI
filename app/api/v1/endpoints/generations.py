@@ -7,7 +7,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from app.core.config import settings
 from app.core.auth import get_current_user_optional
 from app.models.schemas import GenerationJobOut, GenerationVariationsResponse
-from app.services.generations_service import enqueue_generation_job, process_generation_job
+from app.models.project_schemas import MoodboardCreate, MoodboardResponse, MoodboardListResponse
+from app.services.generations_service import enqueue_generation_job, process_generation_job, generate_moodboard, get_project_moodboards
 import logging
 import time
 from app.db import client as db_client
@@ -150,20 +151,6 @@ async def create_generation_job(
                 "project_id": final.projectId,
             }
 
-        # Schedule background processing
-        # background.add_task(process_generation_job, job["id"]) 
-        # logger.info("Scheduled background processing for job id=%s", job["id"]) 
-        # return {
-        #     "id": job["id"],
-        #     "status": job["status"],
-        #     "reference": job["reference"],
-        #     "output": job.get("output"),
-        #     "prompt": job.get("prompt"),
-        #     "style": job.get("style"),
-        #     "items": job.get("items"),
-        #     "width": job["width"],
-        #     "height": job["height"],
-        # }
     except Exception as e:
         logger.exception("Error in create_generation_job: %s", e)
         raise HTTPException(status_code=e.status_code, detail=str(e))
@@ -383,3 +370,98 @@ async def get_generation_job(job_id: str):
         "user": job.userId,
         "project_id": job.projectId,
     }
+
+
+@router.post("/moodboard", response_model=MoodboardResponse)
+async def create_moodboard(
+    moodboard_data: MoodboardCreate,
+    current_user = Depends(get_current_user_optional),
+):
+    """
+    Generate a moodboard from a reference image using OpenAI's vision model.
+    The moodboard will analyze the image and provide design recommendations
+    including colors, textures, furniture, lighting, and decorative elements.
+    """
+    try:
+        # Verify project exists and user has access
+     
+        
+        if current_user:
+
+            logger.info("Project ID: %s", moodboard_data.projectId)
+            project = await ProjectService.get_project_by_id(moodboard_data.projectId, current_user["id"])
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+            user_id = current_user["id"]
+        else:
+            # Anonymous users cannot create moodboards - require authentication
+            raise HTTPException(status_code=401, detail="Authentication required to create moodboards")
+        
+        # Generate moodboard
+        moodboard = await generate_moodboard(
+            project_id=moodboard_data.projectId,
+            reference_image_url=moodboard_data.referenceImage,
+            prompt=moodboard_data.prompt,
+            style=moodboard_data.style,
+            color_palette=moodboard_data.colorPalette,
+            user_id=user_id,
+        )
+        
+        return MoodboardResponse(
+            success=True,
+            message="Moodboard generated successfully",
+            moodboard=moodboard
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error creating moodboard: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate moodboard: {str(e)}"
+        )
+
+
+@router.get("/projects/{project_id}/moodboards", response_model=MoodboardListResponse)
+async def get_project_moodboards_endpoint(
+    project_id: str,
+    current_user = Depends(get_current_user_optional),
+):
+    """
+    Get all moodboards for a specific project.
+    """
+    try:
+    
+        
+        if current_user:
+            project = await ProjectService.get_project_by_id(project_id, current_user["id"])
+            if not project:
+                raise HTTPException(status_code=404, detail="Project not found")
+        else:
+            # For anonymous users, just verify project exists
+            try:
+                project = await project_service.get_project_by_id(project_id, None)
+                if not project:
+                    raise HTTPException(status_code=404, detail="Project not found")
+            except:
+                raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Get moodboards
+        moodboards = await get_project_moodboards(project_id)
+        
+        return MoodboardListResponse(
+            success=True,
+            message="Moodboards retrieved successfully",
+            moodboards=moodboards,
+            total=len(moodboards)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error fetching project moodboards: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch moodboards: {str(e)}"
+        )

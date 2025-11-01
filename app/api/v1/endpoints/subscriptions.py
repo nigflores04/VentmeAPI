@@ -32,13 +32,6 @@ async def get_active_subscription(
 ):
     """Get the active subscription for the current user"""
     subscription = await subscription_service.get_active_subscription(current_user["id"])
-    
-    if not subscription:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active subscription found"
-        )
-    
     return SubscriptionResponse(subscription=subscription)
 
 

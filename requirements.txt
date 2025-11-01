@@ -18,8 +18,9 @@ requests==2.32.4
 # AWS and cloud services
 boto3==1.40.6
 
-# Google AI services
+# AI services
 google-genai==1.32.0
+openai>=1.0.0
 
 # Payment processing
 paystack-sdk==1.0.1
