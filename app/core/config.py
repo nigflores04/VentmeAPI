@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # Google Gemini
     GEMINI_API_KEY: str | None = None
     GEMINI_IMAGE_MODEL: str = getenv("GEMINI_IMAGE_MODEL")
+    
+    # OpenAI
+    OPENAI_API_KEY: str | None = getenv("OPENAI_API_KEY")
+    OPENAI_IMAGE_MODEL: str = getenv("OPENAI_IMAGE_MODEL", "gpt-4o")
 
     # Paystack
     PAYSTACK_SECRET_KEY: str | None = getenv("PAYSTACK_SECRET_KEY")

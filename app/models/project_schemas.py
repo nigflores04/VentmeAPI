@@ -81,3 +81,49 @@ class ProjectUpdateResponse(BaseModel):
 class ProjectDeleteResponse(BaseModel):
     success: bool = True
     message: str = "Project deleted successfully"
+
+
+# Moodboard Schemas
+class MoodboardCreate(BaseModel):
+    projectId: str = Field(..., description="Project ID to associate the moodboard with")
+    referenceImage: str = Field(..., description="Reference image URL for moodboard generation")
+    prompt: Optional[str] = Field(None, max_length=1000, description="Additional prompt for moodboard style")
+    style: Optional[str] = Field(None, description="Style preference for the moodboard")
+    colorPalette: Optional[str] = Field(None, description="Color palette preference")
+
+
+class MoodboardItem(BaseModel):
+    """Individual item in a moodboard"""
+    title: str
+    description: str
+    category: str  # e.g., "color", "texture", "furniture", "lighting", "decor"
+    imageUrl: Optional[str] = None
+    hexColor: Optional[str] = None  # For color items
+    
+
+class MoodboardOut(BaseModel):
+    id: str
+    projectId: str
+    userId: str
+    referenceImage: str
+    prompt: Optional[str] = None
+    style: Optional[str] = None
+    colorPalette: Optional[str] = None
+    status: str  # "generating", "completed", "failed"
+    items: List[MoodboardItem] = []
+    output: Optional[str] = None  # S3 URL of the generated moodboard image
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class MoodboardResponse(BaseModel):
+    success: bool = True
+    message: str = "Moodboard generated successfully"
+    moodboard: MoodboardOut
+
+
+class MoodboardListResponse(BaseModel):
+    success: bool = True
+    message: str = "Moodboards retrieved successfully"
+    moodboards: List[MoodboardOut] = []
+    total: int = 0

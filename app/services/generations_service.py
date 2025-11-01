@@ -8,15 +8,19 @@ import aiohttp
 import tempfile
 import logging
 import time
+from datetime import datetime
 from google import genai
 from PIL import Image
 
 import httpx
+import json
+import io
 
 from app.core.config import settings
 from app.db import client as db_client
 from app.models.schemas import GenerationJobOut
 from app.services.storage_service import upload_bytes
+from app.models.project_schemas import MoodboardOut, MoodboardItem
 
 # Download the image from URL first
 import aiohttp
@@ -265,6 +269,43 @@ def _compose_prompt(
     prompt_parts.append("The final image should showcase impeccable attention to detail, cinematic lighting, and a magazine-quality aesthetic. All new elements should be harmonious and brand new, reflecting a complete transformation.")
         
     return " ".join(prompt_parts).strip()
+
+
+def _compose_moodboard_prompt(
+    reference_image_url: str,
+    prompt: Optional[str] = None,
+    style: Optional[str] = None,
+    color_palette: Optional[str] = None,
+) -> str:
+    """
+    Compose a prompt for generating a visual moodboard image.
+    """
+    prompt_parts = [
+        "Create a beautiful, professional moodboard collage inspired by this reference image.",
+        "The moodboard should include:",
+        "- Color palette swatches extracted from the reference image",
+        "- Texture samples and material inspirations",
+        "- Furniture pieces and decor items that complement the style",
+        "- Lighting fixtures and accessories",
+        "- Pattern and fabric samples",
+        "- Typography or design elements if relevant",
+        "Arrange these elements in an aesthetically pleasing grid or collage layout.",
+        "The overall composition should be clean, professional, and magazine-quality.",
+    ]
+    
+    if style:
+        prompt_parts.append(f"Focus on {style} style elements and aesthetics.")
+    
+    if color_palette:
+        prompt_parts.append(f"Emphasize the {color_palette} color palette throughout the moodboard.")
+    
+    if prompt:
+        prompt_parts.append(f"Additional requirements: {prompt}")
+    
+    prompt_parts.append("The final moodboard should be visually cohesive and inspiring for interior design.")
+    
+    return " ".join(prompt_parts)
+
 
 async def _async_sleep(seconds: float) -> None:
 
@@ -526,3 +567,281 @@ async def _call_openai_image_edit(
         raise RuntimeError(f"OpenAI Images edit returned no image data: {resp}")
 
     return base64.b64decode(data[0].b64_json)
+
+
+async def analyze_image_for_moodboard(
+    reference_image_url: str,
+    prompt: Optional[str] = None,
+    style: Optional[str] = None,
+    color_palette: Optional[str] = None,
+) -> List[MoodboardItem]:
+    """
+    Use Gemini's vision model to analyze an image and generate moodboard items.
+    """
+    if not settings.GEMINI_API_KEY:
+        raise ValueError("Gemini API key not configured")
+    
+    # Download image and encode to base64
+    async with httpx.AsyncClient(timeout=120) as client:
+        response = await client.get(reference_image_url)
+        response.raise_for_status()
+        image_data = base64.b64encode(response.content).decode()
+    
+    # Build analysis prompt
+    analysis_prompt = f"""
+    Analyze this interior design reference image and create a comprehensive moodboard with design recommendations.
+    
+    {f"Style preference: {style}" if style else ""}
+    {f"Color palette preference: {color_palette}" if color_palette else ""}
+    {f"Additional context: {prompt}" if prompt else ""}
+    
+    Please provide a detailed analysis in JSON format with the following structure:
+    {{
+        "items": [
+            {{
+                "title": "Item name",
+                "description": "Detailed description",
+                "category": "color|texture|furniture|lighting|decor|material",
+                "hexColor": "#RRGGBB" (only for color items),
+                "imageUrl": null
+            }}
+        ]
+    }}
+    
+    Include 8-12 items covering:
+    - 3-4 dominant colors from the image
+    - 2-3 key textures or materials
+    - 2-3 furniture pieces or design elements
+    - 1-2 lighting suggestions
+    - 1-2 decorative elements
+    
+    Focus on actionable design recommendations that capture the essence of this space.
+    Return ONLY the JSON object, no additional text.
+    """
+    
+    # API request with retry logic
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": analysis_prompt},
+                {"inline_data": {"mime_type": "image/jpeg", "data": image_data}}
+            ]
+        }]
+    }
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                response = await client.post(url, params={"key": settings.GEMINI_API_KEY}, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                break
+        except (httpx.WriteTimeout, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+            if attempt == max_retries - 1:
+                raise RuntimeError(f"Gemini API timeout after {max_retries} attempts: {str(e)}")
+            logger.warning(f"Gemini API timeout on attempt {attempt + 1}, retrying...")
+            await asyncio.sleep(2 ** attempt)  # Exponential backoff
+    
+    # Extract text response
+    try:
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+        logger.info(f"Gemini moodboard response: {content}")
+        
+        # Clean and parse JSON
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+        
+        try:
+            parsed_data = json.loads(content)
+            items_data = parsed_data.get("items", [])
+        except json.JSONDecodeError:
+            # Fallback: search for JSON pattern
+            import re
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            if json_match:
+                parsed_data = json.loads(json_match.group())
+                items_data = parsed_data.get("items", [])
+            else:
+                logger.error(f"No valid JSON found in response: {content}")
+                items_data = []
+        
+        # Convert to MoodboardItem objects
+        moodboard_items = []
+        for item_data in items_data:
+            try:
+                item = MoodboardItem(
+                    title=item_data.get("title", "Untitled"),
+                    description=item_data.get("description", ""),
+                    category=item_data.get("category", "decor"),
+                    imageUrl=item_data.get("imageUrl"),
+                    hexColor=item_data.get("hexColor")
+                )
+                moodboard_items.append(item)
+            except Exception as e:
+                logger.warning(f"Failed to create moodboard item: {e}")
+                continue
+        
+        return moodboard_items
+        
+    except (KeyError, IndexError) as e:
+        logger.error(f"Failed to extract text from Gemini response: {e}")
+        raise RuntimeError(f"Failed to analyze image with Gemini: {str(e)}")
+
+
+async def generate_moodboard(
+    *,
+    project_id: str,
+    reference_image_url: str,
+    prompt: Optional[str] = None,
+    style: Optional[str] = None,
+    color_palette: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> MoodboardOut:
+    """
+    Generate a visual moodboard image by analyzing a reference image and creating a collage-style moodboard.
+    Uploads the generated moodboard image to S3 and stores metadata in database.
+    """
+    moodboard_id = str(uuid.uuid4())
+    current_time = time.time()
+    
+    try:
+        # Ensure database connection
+        if db_client.prisma is None:
+            await db_client.connect()
+            
+        # Create initial moodboard record
+        await db_client.prisma.moodboard.create(data={
+            "id": moodboard_id,
+            "projectId": project_id,
+            "userId": user_id,
+            "referenceImage": reference_image_url,
+            "prompt": prompt,
+            "style": style,
+            "colorPalette": color_palette,
+            "status": "generating",
+            "items": "[]",
+        })
+        
+        # Generate visual moodboard image using Gemini
+        moodboard_prompt = _compose_moodboard_prompt(
+            reference_image_url=reference_image_url,
+            prompt=prompt,
+            style=style,
+            color_palette=color_palette,
+        )
+        
+        # Generate moodboard image using Gemini Flash
+        moodboard_image_bytes = await generate_image_with_gemini_flash(
+            image_url=reference_image_url,
+            prompt=moodboard_prompt,
+            max_retries=3,
+            timeout=120,
+        )
+        
+        # Upload moodboard image to S3
+        moodboard_url = upload_bytes(
+            moodboard_image_bytes,
+            content_type="image/png",
+            key_prefix="moodboards/",
+            filename=f"{moodboard_id}.png",
+        )
+        
+        # Analyze image for moodboard items (metadata)
+        moodboard_items = await analyze_image_for_moodboard(
+            reference_image_url=reference_image_url,
+            prompt=prompt,
+            style=style,
+            color_palette=color_palette,
+        )
+        
+        # Update moodboard with results
+        items_json = json.dumps([item.dict() for item in moodboard_items])
+        await db_client.prisma.moodboard.update(
+            where={"id": moodboard_id},
+            data={
+                "status": "completed",
+                "items": items_json,
+                "output": moodboard_url,  # Store the S3 URL
+            }
+        )
+        
+        # Return MoodboardOut object
+        return MoodboardOut(
+            id=moodboard_id,
+            projectId=project_id,
+            userId=user_id or "",
+            referenceImage=reference_image_url,
+            prompt=prompt,
+            style=style,
+            colorPalette=color_palette,
+            status="completed",
+            items=moodboard_items,
+            output=moodboard_url,  # Include the generated moodboard image URL
+            createdAt=datetime.fromtimestamp(current_time),
+            updatedAt=datetime.fromtimestamp(time.time()),
+        )
+        
+    except Exception as e:
+        logger.exception(f"Error generating moodboard: {e}")
+        
+        # Update status to failed
+        try:
+            await db_client.prisma.moodboard.update(
+                where={"id": moodboard_id},
+                data={
+                    "status": "failed",
+                }
+            )
+        except:
+            pass
+        
+        raise RuntimeError(f"Failed to generate moodboard: {str(e)}")
+
+
+async def get_project_moodboards(project_id: str) -> List[MoodboardOut]:
+    """Get all moodboards for a project"""
+    try:
+        # Ensure database connection
+        if db_client.prisma is None:
+            await db_client.connect()
+            
+        moodboards = await db_client.prisma.moodboard.find_many(
+            where={"projectId": project_id},
+            order_by={"createdAt": "desc"}
+        )
+        
+        result = []
+        for mb in moodboards:
+            try:
+                items_data = json.loads(mb.items or "[]")
+                items = [MoodboardItem(**item) for item in items_data]
+            except:
+                items = []
+            
+            result.append(MoodboardOut(
+                id=mb.id,
+                projectId=mb.projectId,
+                userId=mb.userId or "",
+                referenceImage=mb.referenceImage,
+                prompt=mb.prompt,
+                style=mb.style,
+                colorPalette=mb.colorPalette,
+                status=mb.status,
+                items=items,
+                output=mb.output,  # Include the generated moodboard image URL
+                createdAt=mb.createdAt,
+                updatedAt=mb.updatedAt,
+            ))
+        
+        return result
+        
+    except Exception as e:
+        logger.exception(f"Error fetching project moodboards: {e}")
+        return []
