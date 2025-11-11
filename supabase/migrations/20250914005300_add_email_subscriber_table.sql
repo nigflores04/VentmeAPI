@@ -13,3 +13,4 @@ CREATE TABLE "EmailSubscriber" (
 -- CreateIndex
 CREATE UNIQUE INDEX "EmailSubscriber_email_key" ON "EmailSubscriber"("email");
 
+

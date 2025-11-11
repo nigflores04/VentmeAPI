@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     PAYSTACK_SECRET_KEY: str | None = getenv("PAYSTACK_SECRET_KEY")
     PAYSTACK_PUBLIC_KEY: str | None = getenv("PAYSTACK_PUBLIC_KEY")
     PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")
+    REPLICATE_API_TOKEN: str | None = getenv("REPLICATE_API_TOKEN")
 
     model_config = SettingsConfigDict(
         env_file=".env",
