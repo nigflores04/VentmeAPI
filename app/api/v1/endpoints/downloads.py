@@ -6,7 +6,8 @@ from app.services.cloudfront_service import build_cloudfront_url
 from PIL import Image
 from io import BytesIO
 from app.services.download_service import replicate_upscale_image
-from app.services.subscription_service import has_active_subscription
+from app.services.subscription_service import get_active_subscription
+from app.models.payment_schemas import SubscriptionPlan
 
 router = APIRouter(prefix="/downloads", tags=["downloads"])
 
@@ -14,6 +15,9 @@ router = APIRouter(prefix="/downloads", tags=["downloads"])
 @router.get("/generation/{job_id}")
 async def download_generation(job_id: str, scale: int = None):
     """Download a generated image by job ID."""
+    if db_client.prisma is None:
+        await db_client.connect()
+
     # Find the generation job
     job = await db_client.prisma.generationjob.find_unique(where={"id": job_id})
     
@@ -23,12 +27,18 @@ async def download_generation(job_id: str, scale: int = None):
     # Get CloudFront URL
     file_url = build_cloudfront_url(job.output)
 
-        # Fetch file content and stream to frontend
+    # Fetch file content and stream to frontend
     try:
         if scale:
-            has_plan = await has_active_subscription(job.userId)
-            if not has_plan:
-                raise HTTPException(status_code=402, detail="An active subscription is required to download scaled images")
+            if not job.userId:
+                raise HTTPException(status_code=401, detail="Authentication required to download high-resolution images")
+
+            subscription = await get_active_subscription(job.userId)
+            if not subscription or subscription.plan not in {SubscriptionPlan.BASIC, SubscriptionPlan.PREMIUM}:
+                raise HTTPException(
+                    status_code=402,
+                    detail="A Basic or Premium subscription is required to download high-resolution images",
+                )
 
             buffer = await replicate_upscale_image(file_url, scale)
 
