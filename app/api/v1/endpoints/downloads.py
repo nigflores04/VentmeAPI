@@ -1,6 +1,6 @@
 import httpx
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from app.db import client as db_client
 from app.services.cloudfront_service import build_cloudfront_url
 from PIL import Image

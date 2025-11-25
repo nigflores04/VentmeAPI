@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     PAYSTACK_PUBLIC_KEY: str | None = getenv("PAYSTACK_PUBLIC_KEY")
     PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")
     REPLICATE_API_TOKEN: str | None = getenv("REPLICATE_API_TOKEN")
+    
+    # Bing Search API
+    BING_SEARCH_API_KEY: str | None = getenv("BING_SEARCH_API_KEY")
 
     model_config = SettingsConfigDict(
         env_file=".env",
