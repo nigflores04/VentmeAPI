@@ -23,13 +23,14 @@ async def replicate_upscale_image(image_url: str, scale: int = 2):
     else:
         output_url = str(output)  
 
-    # Download the upscaled image
-    async with httpx.AsyncClient() as client:
+    # Download the upscaled image with extended timeout (5 minutes for large images)
+    timeout = httpx.Timeout(300.0, connect=60.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.get(output_url)
         resp.raise_for_status()
         buffer = BytesIO(resp.content)
         buffer.seek(0)
+        print(f"Downloaded upscaled image, size: {len(buffer.getvalue())} bytes")
         return buffer
-    # return output.url()
 
 
