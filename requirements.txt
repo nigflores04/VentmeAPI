@@ -1,3 +1,5 @@
+
+
 # Core FastAPI and server
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
@@ -39,5 +41,4 @@ replicate
 
 redis
 
-google-cloud-vision==3.11.0
-google-genai==1.38.0
+google-cloud-vision
