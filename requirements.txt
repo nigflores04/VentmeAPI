@@ -38,3 +38,6 @@ email_validator==2.2.0
 replicate
 
 redis
+
+google-cloud-vision==3.11.0
+google-genai==1.38.0
