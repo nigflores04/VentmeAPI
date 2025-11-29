@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # Whether to set ACL public-read on uploaded objects (helpful for simple public CDN behavior)
     S3_PUBLIC_READ: bool = getenv("S3_PUBLIC_READ", "true").lower() in ("1", "true", "yes")
     # Whether to return presigned GET URLs for uploaded objects (good for buckets with ACLs disabled)
-    S3_RETURN_PRESIGNED: bool = getenv("S3_RETURN_PRESIGNED", "true").lower() in ("1", "true", "yes")
+    S3_RETURN_PRESIGNED: bool = getenv("S3_RETURN_PRESIGNED", "false").lower() in ("1", "true", "yes")
     # Presigned URL expiry in seconds
     S3_SIGNED_URL_EXPIRY: int = int(getenv("S3_SIGNED_URL_EXPIRY", "86400"))
 

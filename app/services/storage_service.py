@@ -61,15 +61,7 @@ def upload_bytes(
         except Exception as acl_err:  # pragma: no cover
             logger.info("Skipping ACL public-read on %s: %s", key, str(acl_err))
 
-    # Prefer presigned URL when configured (works with private buckets)
-    if getattr(settings, "S3_RETURN_PRESIGNED", False):
-        return client.generate_presigned_url(
-            ClientMethod="get_object",
-            Params={"Bucket": settings.S3_BUCKET, "Key": key},
-            ExpiresIn=getattr(settings, "S3_SIGNED_URL_EXPIRY", 86400),
-        )
-
-    # Otherwise, build a public URL (assumes object is publicly readable)
+    # Build a public URL (assumes object is publicly readable)
     if settings.S3_ENDPOINT_URL:
         base = settings.S3_ENDPOINT_URL.rstrip("/")
         return f"{base}/{settings.S3_BUCKET}/{key}"
