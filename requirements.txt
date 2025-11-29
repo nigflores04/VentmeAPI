@@ -34,3 +34,5 @@ python-dotenv==1.1.1
 
 # Email validation
 email_validator==2.2.0
+
+replicate
