@@ -163,7 +163,7 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
     if not email_verified_google:
         await db_client.prisma.user.update(
             where={"email": email},
-            data={"emailVerified": True}
+            data={"emailVerified": True, "credits": 9}
         )
         email_verified_google = True
     
