@@ -57,6 +57,7 @@ async def register(req: RegisterRequest) -> AuthResponse:
             "name": req.name,
             "passwordHash": hash_password(req.password),
             "provider": "password",
+            "credits": 9 # free test credits
         }
     )
     logger.info("register: created user id=%s email=%s (DB)", created.id, created.email)
