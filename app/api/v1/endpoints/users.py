@@ -14,6 +14,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+
+# @router.get("/", response_model=List[UserPublic])
+# async def get_all_users(
+#     current_user: dict = Depends(get_current_user_required),
+#     skip: int = Query(0, ge=0, description="Number of records to skip"),
+#     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+# ):
+#     """
+#     Get all users. Requires authentication.
+#     Supports pagination with skip and limit parameters.
+#     """
+#     try:
+#         users = await db_client.prisma.user.find_many(
+#             skip=skip,
+#             take=limit,
+#             order={"createdAt": "desc"}
+#         )
+        
+#         return [
+#             UserPublic(
+#                 id=user.id,
+#                 email=user.email,
+#                 name=user.name,
+#                 emailVerified=user.emailVerified,
+#                 credits=user.credits,
+#             )
+#             for user in users
+#         ]
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Failed to fetch users: {str(e)}"
+#         )
+        
 @router.get("/me", response_model=UserPublic)
 async def get_current_user_details(
     current_user: dict = Depends(get_current_user_required),

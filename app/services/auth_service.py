@@ -57,6 +57,7 @@ async def register(req: RegisterRequest) -> AuthResponse:
             "name": req.name,
             "passwordHash": hash_password(req.password),
             "provider": "password",
+            "credits": 9 # free test credits
         }
     )
     logger.info("register: created user id=%s email=%s (DB)", created.id, created.email)
@@ -163,7 +164,7 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
     if not email_verified_google:
         await db_client.prisma.user.update(
             where={"email": email},
-            data={"emailVerified": True}
+            data={"emailVerified": True, "credits": 9}
         )
         email_verified_google = True
     
