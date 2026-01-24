@@ -10,6 +10,12 @@ from google.oauth2 import id_token as google_id_token
 
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
+from app.core.exceptions import (
+    AuthenticationError,
+    ValidationError,
+    DatabaseError,
+    ExternalServiceError
+)
 from app.models.auth_schemas import (
     AuthResponse,
     GoogleLoginRequest,
@@ -33,21 +39,21 @@ async def register(req: RegisterRequest) -> AuthResponse:
 
     # Ensure Prisma is connected
     if not DATABASE_URL:
-        raise ValueError("Database not configured")
+        raise DatabaseError("Database not configured")
     
     if db_client.prisma is None:
         try:
             await db_client.connect()
-            print("register: connected to database")
+            logger.info("register: connected to database")
         except Exception as e:
-            raise ValueError(f"Database connection failed: {e}")
+            raise DatabaseError(f"Database connection failed: {e}")
     
     if not db_client.prisma.is_connected():  # type: ignore[attr-defined]
-        raise ValueError("Database not connected")
+        raise DatabaseError("Database not connected")
 
     existing = await db_client.prisma.user.find_unique(where={"email": req.email})
     if existing:
-        raise ValueError("Email already registered")
+        raise ValidationError("Email already registered", field="email")
     
     user_id = str(uuid.uuid4())
     created = await db_client.prisma.user.create(
@@ -79,31 +85,31 @@ async def register(req: RegisterRequest) -> AuthResponse:
 
 async def login(req: LoginRequest) -> AuthResponse:
     if not settings.DATABASE_URL:
-        raise ValueError("Database not configured")
+        raise DatabaseError("Database not configured")
     
     if db_client.prisma is None:
         try:
             await db_client.connect()
         except Exception as e:
-            raise ValueError(f"Database connection failed: {e}")
+            raise DatabaseError(f"Database connection failed: {e}")
     
     if not db_client.prisma.is_connected():  # type: ignore[attr-defined]
-        raise ValueError("Database not connected")
+        raise DatabaseError("Database not connected")
 
     logger.info("login: using DB lookup for email=%s", req.email)
     db_user = await db_client.prisma.user.find_unique(where={"email": req.email})
     
     # Check if user exists
     if not db_user:
-        raise ValueError("User with email not found")
+        raise AuthenticationError("Invalid email or password")  # Don't reveal which field is wrong
     
     # Check if user has a password (not a Google user trying to login with password)
     if not db_user.passwordHash:
-        raise ValueError("This account uses Google login. Please sign in with Google.")
+        raise AuthenticationError("This account uses Google login. Please sign in with Google.")
     
     # Check password
     if not verify_password(req.password, db_user.passwordHash):
-        raise ValueError("Password incorrect")
+        raise AuthenticationError("Invalid email or password")  # Don't reveal which field is wrong
     
     # Use getattr with default False for backward compatibility
     email_verified = getattr(db_user, 'emailVerified', False)
@@ -124,19 +130,23 @@ async def login(req: LoginRequest) -> AuthResponse:
 
 async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
     if not settings.GOOGLE_CLIENT_ID:
-        raise ValueError("Google login not configured")
+        raise ExternalServiceError("Google", "Google login not configured")
     # Verify Google ID token
-    idinfo = google_id_token.verify_oauth2_token(req.id_token, google_requests.Request(), settings.GOOGLE_CLIENT_ID)
+    try:
+        idinfo = google_id_token.verify_oauth2_token(req.id_token, google_requests.Request(), settings.GOOGLE_CLIENT_ID)
+    except Exception as e:
+        raise AuthenticationError(f"Invalid Google token: {str(e)}")
+    
     if idinfo.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
-        raise ValueError("Invalid Google token issuer")
+        raise AuthenticationError("Invalid Google token issuer")
 
     email = idinfo.get("email")
     name = idinfo.get("name") or idinfo.get("given_name")
     if not email:
-        raise ValueError("Google token missing email")
+        raise AuthenticationError("Google token missing email")
 
     if not settings.DATABASE_URL:
-        raise ValueError("Database not configured")
+        raise DatabaseError("Database not configured")
     
     if db_client.prisma is None:
         try:

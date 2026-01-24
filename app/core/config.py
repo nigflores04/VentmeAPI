@@ -1,20 +1,40 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 from os import getenv, environ
+import secrets
 
 load_dotenv(override=True)
 
 class Settings(BaseSettings):
     APP_NAME: str = "Ventics AI API"
     VERSION: str = "0.1.0"
+    ENVIRONMENT: str = getenv("ENVIRONMENT", "development")
     MODEL_PROVIDER: str = "stub"
     TIMEOUT: int = 30
     MAX_IMAGE_SIZE: int = 1024
-    # Auth settings
-    JWT_SECRET_KEY: str = "change-me-in-prod"
+    
+    # Security settings
+    JWT_SECRET_KEY: str = getenv("JWT_SECRET_KEY", "change-me-in-prod")
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    GOOGLE_CLIENT_ID: str | None = None
+    REQUIRE_EMAIL_VERIFICATION: bool = getenv("REQUIRE_EMAIL_VERIFICATION", "false").lower() in ("1", "true", "yes")
+    
+    # Password requirements
+    PASSWORD_MIN_LENGTH: int = 8
+    PASSWORD_REQUIRE_UPPERCASE: bool = True
+    PASSWORD_REQUIRE_LOWERCASE: bool = True
+    PASSWORD_REQUIRE_DIGIT: bool = True
+    PASSWORD_REQUIRE_SPECIAL: bool = True
+    
+    
+    # CORS settings - stored as comma-separated string
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    
+    # Rate limiting
+    RATE_LIMIT_ENABLED: bool = getenv("RATE_LIMIT_ENABLED", "true").lower() in ("1", "true", "yes")
+    
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str | None = getenv("GOOGLE_CLIENT_ID")
     # Email settings
     SMTP_HOST: str | None = getenv("SMTP_HOST")
     SMTP_PORT: int = int(getenv("SMTP_PORT", "587"))
@@ -57,7 +77,7 @@ class Settings(BaseSettings):
     # Paystack
     PAYSTACK_SECRET_KEY: str | None = getenv("PAYSTACK_SECRET_KEY")
     PAYSTACK_PUBLIC_KEY: str | None = getenv("PAYSTACK_PUBLIC_KEY")
-    PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")
+    PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")  # Required for webhook verification
     REPLICATE_API_TOKEN: str | None = getenv("REPLICATE_API_TOKEN")
     
     # Bing Search API
@@ -68,6 +88,43 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+    
+    def get_allowed_origins_list(self) -> list[str]:
+        """Parse ALLOWED_ORIGINS string into list."""
+        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",")]
+    
+    def validate_security_config(self) -> None:
+        """Validate security-critical configuration on startup."""
+        warnings = []
+        errors = []
+        
+        # Check JWT secret
+        if self.JWT_SECRET_KEY == "change-me-in-prod" and self.ENVIRONMENT == "production":
+            errors.append("JWT_SECRET_KEY must be changed in production!")
+        
+        if len(self.JWT_SECRET_KEY) < 32:
+            warnings.append("JWT_SECRET_KEY should be at least 32 characters long")
+        
+        # Check CORS
+        if "*" in self.ALLOWED_ORIGINS and self.ENVIRONMENT == "production":
+            errors.append("CORS allow_origins=['*'] is not allowed in production!")
+        
+        # Check Paystack webhook secret
+        if self.PAYSTACK_SECRET_KEY and not self.PAYSTACK_WEBHOOK_SECRET:
+            warnings.append("PAYSTACK_WEBHOOK_SECRET is not set - webhook signature verification disabled")
+        
+        # Print warnings
+        for warning in warnings:
+            print(f"WARNING: {warning}")
+        
+        # Raise errors
+        if errors:
+            error_msg = "\n".join(f"ERROR: {error}" for error in errors)
+            raise ValueError(f"Security configuration errors:\n{error_msg}")
 
 
 settings = Settings()
+
+# Validate security configuration on import
+if getenv("SKIP_CONFIG_VALIDATION") != "true":
+    settings.validate_security_config()
