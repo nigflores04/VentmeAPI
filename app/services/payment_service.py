@@ -43,19 +43,44 @@ async def get_pricing() -> PricingResponse:
 
 
 async def initialize_payment(user_id: str, request: CreatePaymentRequest) -> InitializePaymentResponse:
-    """Create a Paystack payment intent for credit purchase"""
+    """
+    Create a Paystack payment intent for individual credit purchase.
+    
+    Flow:
+    1. Validate Paystack configuration
+    2. Calculate credits from amount (₦100 = 1 credit)
+    3. Find user in database
+    4. Generate unique payment reference
+    5. Initialize Paystack transaction
+    6. Create payment record in database
+    
+    Args:
+        user_id: ID of user purchasing credits
+        request: CreatePaymentRequest with amount and callback_url
+        
+    Returns:
+        InitializePaymentResponse with redirect URL and payment reference
+        
+    Raises:
+        ValueError: If Paystack not configured or user not found
+    """
+    logger.info(f"[INIT PAYMENT] Starting payment for user: {user_id}, amount: ₦{request.amount/100}")
+    
     if not settings.PAYSTACK_SECRET_KEY:
+        logger.error("[INIT PAYMENT] ❌ Paystack not configured")
         raise ValueError("Paystack not configured")
     
-    amount = request.amount # Paystack amount is in kobo (smallest currency unit)
-    credits = request.amount/100
+    amount = request.amount  # Paystack amount is in kobo (smallest currency unit)
+    credits = request.amount/100  # ₦100 = 1 credit
     
     # Get user information to create/update customer
+    logger.info(f"[INIT PAYMENT] Looking up user: {user_id}")
     user = await db_client.prisma.user.find_unique(  # type: ignore
         where={"id": user_id}
     )
     
     if not user:
+        logger.error(f"[INIT PAYMENT] ❌ User not found: {user_id}")
         raise ValueError(f"User not found: {user_id}")
     
     try:
@@ -77,12 +102,14 @@ async def initialize_payment(user_id: str, request: CreatePaymentRequest) -> Ini
         # print(transaction_data)
 
 
+        logger.info(f"[INIT PAYMENT] Paystack transaction initialized - Reference: {reference}")
+
+        # Create payment record in database for tracking
         await db_client.prisma.payment.create( 
             data={
                 "id": str(uuid.uuid4()),
                 "userId": user_id,
                 "payment_reference": reference, 
-                # "plan": request.plan.value,
                 "amount": amount,
                 "credits": credits,
                 "status": PaymentStatus.PENDING.value,
@@ -90,7 +117,7 @@ async def initialize_payment(user_id: str, request: CreatePaymentRequest) -> Ini
             }
         )
         
-        logger.info("Initialized payment %s for user %s, credits %s", reference, user_id, credits)
+        logger.info(f"[INIT PAYMENT] ✅ Payment initialized - Reference: {reference}, Credits: {credits}, User: {user_id}")
 
         return InitializePaymentResponse(
             redirect_url=transaction_data.data["authorization_url"],
@@ -257,8 +284,30 @@ async def initialize_subscription(request: CreateSubscriptionRequest, user_id: s
 
 
 async def verify_payment(payment_reference: str) -> PaymentStatus:
-    """Verify payment and add credits to user account"""
+    """
+    Verify payment with Paystack and add credits to user account.
+    
+    Flow:
+    1. Verify payment with Paystack API
+    2. Find payment record in database
+    3. Check if already processed (avoid double-crediting)
+    4. Map Paystack status to our PaymentStatus enum
+    5. Update payment record in database
+    6. Add credits to user account if successful
+    
+    Args:
+        payment_reference: Unique payment reference from Paystack
+        
+    Returns:
+        PaymentStatus: Current status of the payment
+        
+    Raises:
+        ValueError: If Paystack not configured or verification fails
+    """
+    logger.info(f"[VERIFY PAYMENT] Verifying payment: {payment_reference}")
+    
     if not settings.PAYSTACK_SECRET_KEY:
+        logger.error("[VERIFY PAYMENT] ❌ Paystack not configured")
         raise ValueError("Paystack not configured")
     
     try:
@@ -308,20 +357,19 @@ async def verify_payment(payment_reference: str) -> PaymentStatus:
                     "status": PaymentStatus.SUCCESSFUL.value,
                     "description": f"Active subscription to {payment.plan} plan"
                 }
-            )
-            
             logger.info(f"Activated subscription for user {payment.userId}, plan {payment.plan}")
         
         # Add credits to user account only if payment was successful
+        # IMPORTANT: This is where purchased credits are added to the user's balance
         if payment_status == PaymentStatus.SUCCESSFUL:
+            logger.info(f"[VERIFY PAYMENT] Adding {payment.credits} credits to user: {payment.userId}")
             await db_client.prisma.user.update( 
                 where={"id": payment.userId}, 
-                data={"credits": {"increment": payment.credits}} 
+                data={"credits": {"increment": payment.credits}}  # Add purchased credits
             )
-            logger.info("Payment %s confirmed, added %d credits to user %s", 
-                       payment_reference, payment.credits, payment.userId)
+            logger.info(f"[VERIFY PAYMENT] ✅ Payment confirmed - Reference: {payment_reference}, Credits added: {payment.credits}, User: {payment.userId}")
         else:
-            logger.warning("Payment %s not successful, status: %s", payment_reference, payment_status.value)
+            logger.warning(f"[VERIFY PAYMENT] ❌ Payment not successful - Reference: {payment_reference}, Status: {payment_status.value}")
         
         return payment_status
         
