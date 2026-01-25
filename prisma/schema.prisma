@@ -14,11 +14,11 @@ datasource db {
 model User {
   id               String          @id @default(uuid())
   email            String          @unique
-  name             String?         @db.VarChar(100)
+  name             String?
   passwordHash     String?
-  provider         String          @db.VarChar(20)
+  provider         String
   emailVerified    Boolean         @default(false)
-  verificationCode String?         @db.VarChar(10)
+  verificationCode String?
   codeExpiresAt    DateTime?
   codeAttempts     Int             @default(0)
   createdAt        DateTime        @default(now())
@@ -29,7 +29,6 @@ model User {
   projects         Project[]
   subscriptions    Subscription[]
 
-  @@index([email])
   @@map("users")
   @@schema("public") 
 }
@@ -37,25 +36,21 @@ model User {
 model GenerationJob {
   id           String   @id @default(uuid())
   userId       String?
-  status       String   @db.VarChar(20)
-  reference    String   @db.Text
-  prompt       String?  @db.Text
-  room_type    String?  @db.VarChar(50)
-  style_preset String?  @db.VarChar(50)
+  status       String
+  reference    String
+  prompt       String?
+  room_type    String?
+  style_preset String?
   width        Int
   height       Int
-  output       String?  @db.Text
-  error        String?  @db.Text
+  output       String?
+  error        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   projectId    String?
-  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project      Project? @relation(fields: [projectId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@index([projectId])
-  @@index([status])
-  @@index([createdAt])
   @@map("generation_jobs")
   @@schema("public") 
 }
@@ -63,22 +58,19 @@ model GenerationJob {
 model Payment {
   id                String        @id @default(uuid())
   userId            String
-  plan              String?       @db.VarChar(50)
+  plan              String?
   amount            Int
   credits           Int
-  status            String        @db.VarChar(20)
+  status            String
   createdAt         DateTime      @default(now())
   completedAt       DateTime?
-  description       String        @db.Text
+  description       String
   isSubscription    Boolean       @default(false)
-  payment_reference String        @unique @db.VarChar(100)
+  payment_reference String        @unique
   subscriptionId    String?
-  subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@index([payment_reference])
-  @@index([status])
   @@map("payments")
   @@schema("public") 
 }
@@ -86,18 +78,16 @@ model Payment {
 model Subscription {
   id              String    @id @default(uuid())
   userId          String
-  plan            String    @db.VarChar(50)
-  planCode        String    @db.VarChar(50)
-  status          String    @db.VarChar(20)
+  plan            String
+  planCode        String
+  status          String
   nextPaymentDate DateTime?
   lastPaymentDate DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   payments        Payment[]
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@index([status])
   @@map("subscriptions")
   @@schema("public") 
 }
@@ -105,21 +95,19 @@ model Subscription {
 model Project {
   id             String          @id @default(uuid())
   userId         String
-  name           String          @db.VarChar(200)
-  description    String?         @db.Text
+  name           String
+  description    String?
   isActive       Boolean         @default(true)
-  referenceImage String?         @db.Text
-  prompt         String?         @db.Text
-  room_type      String?         @db.VarChar(50)
-  style_preset   String?         @db.VarChar(50)
+  referenceImage String?
+  prompt         String?
+  room_type      String?
+  style_preset   String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   generations    GenerationJob[]
   moodboards     Moodboard[]
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-  @@index([isActive])
   @@map("projects")
   @@schema("public") 
 }
@@ -128,35 +116,30 @@ model Moodboard {
   id             String   @id @default(uuid())
   projectId      String
   userId         String?
-  referenceImage String   @db.Text
-  prompt         String?  @db.Text
-  style          String?  @db.VarChar(50)
-  colorPalette   String?  @db.VarChar(100)
-  status         String   @db.VarChar(20)
-  items          String   @db.Text
-  output         String?  @db.Text
+  referenceImage String
+  prompt         String?
+  style          String?
+  colorPalette   String?
+  status         String
+  items          String
+  output         String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user           User?    @relation(fields: [userId], references: [id])
 
-  @@index([projectId])
-  @@index([userId])
-  @@index([status])
   @@map("moodboards")
   @@schema("public") 
 }
 
 model EmailSubscriber {
   id        String   @id @default(uuid())
-  email     String   @unique @db.VarChar(255)
-  name      String?  @db.VarChar(100)
-  source    String?  @db.VarChar(50)
+  email     String   @unique
+  name      String?
+  source    String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@index([email])
-  @@index([isActive])
   @@map("email_subscribers")
   @@schema("public") 
 }

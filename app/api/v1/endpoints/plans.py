@@ -3,15 +3,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.payment_schemas import SubscriptionPlan
-from app.core.payment_config import SUBSCRIPTION_PLANS, INDIVIDUAL_PLAN
+from app.core.payment_config import SUBSCRIPTION_PLANS
 from app.core.auth import get_current_user_required
 
 router = APIRouter(prefix="/plans", tags=["plans"])
-
-
-class PlanFeature(BaseModel):
-    name: str
-    included: bool
 
 
 class PlanResponse(BaseModel):
@@ -20,7 +15,6 @@ class PlanResponse(BaseModel):
     price: int
     description: str
     popular: bool
-    features: List[PlanFeature]
 
 
 class PlanCreate(BaseModel):
@@ -47,32 +41,9 @@ async def get_all_plans():
             credits=config["credits"],
             price=config["price"],
             description=config["description"],
-            popular=config["popular"],
-            features=[PlanFeature(**feature) for feature in config["features"]]
+            popular=config["popular"]
         ))
     return plans
-
-
-class IndividualPlanResponse(BaseModel):
-    name: str
-    price_per_credit: int
-    minimum_credits: int
-    minimum_amount: int
-    description: str
-    features: List[PlanFeature]
-
-
-@router.get("/individual", response_model=IndividualPlanResponse)
-async def get_individual_plan():
-    """Get Individual plan configuration for flexible credit purchases."""
-    return IndividualPlanResponse(
-        name=INDIVIDUAL_PLAN["name"],
-        price_per_credit=INDIVIDUAL_PLAN["price_per_credit"],
-        minimum_credits=INDIVIDUAL_PLAN["minimum_credits"],
-        minimum_amount=INDIVIDUAL_PLAN["minimum_amount"],
-        description=INDIVIDUAL_PLAN["description"],
-        features=[PlanFeature(**feature) for feature in INDIVIDUAL_PLAN["features"]]
-    )
 
 
 @router.get("/{plan}", response_model=PlanResponse)
@@ -87,8 +58,7 @@ async def get_plan(plan: SubscriptionPlan):
         credits=config["credits"],
         price=config["price"],
         description=config["description"],
-        popular=config["popular"],
-        features=[PlanFeature(**feature) for feature in config["features"]]
+        popular=config["popular"]
     )
 
 
