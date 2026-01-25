@@ -12,9 +12,15 @@ SUBSCRIPTION_PLANS: Dict[SubscriptionPlan, Dict] = {
         "description": "Watermarked renders · 3 requests (9 credits) per week · New credits restore in 7 days when existing credit is exhausted",
         "popular": False,
         "features": [
-            "Watermarked renders",
-            "3 requests (9 credits) per week",
-            "Credits restore in 7 days"
+            {"name": "Dashboard Access", "included": True},
+            {"name": "Customer Support", "included": True},
+            {"name": "3 requests per week", "included": True},
+            {"name": "High Resolution Downloads", "included": False},
+            {"name": "Projects Management Tool", "included": False},
+            {"name": "3D Visualization", "included": False},
+            {"name": "Product Discovery", "included": False},
+            {"name": "Shareable Link", "included": False},
+            {"name": "Priority Support", "included": False}
         ]
     },
     SubscriptionPlan.STARTER: {
@@ -23,9 +29,15 @@ SUBSCRIPTION_PLANS: Dict[SubscriptionPlan, Dict] = {
         "description": "40 requests (120 credits) · High resolution download · Projects management dashboard/tool",
         "popular": False,
         "features": [
-            "40 requests (120 credits)",
-            "High resolution download",
-            "Projects management dashboard/tool"
+            {"name": "Dashboard Access", "included": True},
+            {"name": "Customer Support", "included": True},
+            {"name": "40 requests", "included": True},
+            {"name": "High Resolution Downloads", "included": True},
+            {"name": "Projects Management Tool", "included": True},
+            {"name": "3D Visualization", "included": False},
+            {"name": "Product Discovery", "included": False},
+            {"name": "Shareable Link", "included": False},
+            {"name": "Priority Support", "included": False}
         ]
     },
     SubscriptionPlan.BASIC: {
@@ -34,29 +46,50 @@ SUBSCRIPTION_PLANS: Dict[SubscriptionPlan, Dict] = {
         "description": "80 requests (240 credits) · High resolution download · Projects management · 3D visualization",
         "popular": True,
         "features": [
-            "80 requests (240 credits)",
-            "High resolution download",
-            "Projects management dashboard/tool",
-            "3D visualization"
+            {"name": "Dashboard Access", "included": True},
+            {"name": "Customer Support", "included": True},
+            {"name": "80 requests", "included": True},
+            {"name": "High Resolution Downloads", "included": True},
+            {"name": "Projects Management Tool", "included": True},
+            {"name": "3D Visualization", "included": True},
+            {"name": "Product Discovery", "included": False},
+            {"name": "Shareable Link", "included": False},
+            {"name": "Priority Support", "included": False}
         ]
     },
     SubscriptionPlan.STUDIO: {
         "credits": 450,  # 150 requests (450 credits)
         "price": 2500000,  # ₦25,000.00
-        "description": "Unlimited (150 requests/450 credits) · All features · Priority Support",
+        "description": "Unlimited · All features · Priority Support",
         "popular": False,
         "features": [
-            "150 requests (450 credits)",
-            "High resolution download",
-            "Product discovery",
-            "3D visualization",
-            "Projects management dashboard/tool",
-            "Shareable link",
-            "Priority Support"
+            {"name": "Dashboard Access", "included": True},
+            {"name": "Customer Support", "included": True},
+            {"name": "Unlimited requests", "included": True},
+            {"name": "High Resolution Downloads", "included": True},
+            {"name": "Projects Management Tool", "included": True},
+            {"name": "3D Visualization", "included": True},
+            {"name": "Product Discovery", "included": True},
+            {"name": "Shareable Link", "included": True},
+            {"name": "Priority Support", "included": True}
         ]
-    },
-    # Individual plan - flexible credit purchase
-    # ₦100 per credit (10000 kobo per credit)
+    }
+}
+
+# Individual plan configuration - flexible credit purchase
+# ₦100 per credit (10000 kobo per credit)
+INDIVIDUAL_PLAN = {
+    "name": "Individual",
+    "price_per_credit": 10000,  # ₦100 per credit in kobo
+    "minimum_credits": 1,
+    "minimum_amount": 10000,  # ₦100 minimum purchase in kobo
+    "description": "Purchase a flexible amount of credits for your needs",
+    "features": [
+        {"name": "₦100 per credit", "included": True},
+        {"name": "No subscription required", "included": True},
+        {"name": "Credits never expire", "included": True},
+        {"name": "Buy exactly what you need", "included": True}
+    ]
 }
 
 
