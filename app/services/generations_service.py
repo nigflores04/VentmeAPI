@@ -40,7 +40,13 @@ _gemini_semaphore = asyncio.Semaphore(2)  # Allow max 2 concurrent requests
 
 async def enqueue_generation_job(
     *,
+<<<<<<< HEAD
     image_url: str,
+=======
+    # image_bytes: bytes,
+    image_url: str,
+    # content_type: str,
+>>>>>>> origin/master
     prompt: Optional[str],
     room_type: Optional[str],
     style_preset: Optional[str],
@@ -49,6 +55,7 @@ async def enqueue_generation_job(
     user_id: Optional[str],
     project_id: Optional[str],
 ) -> dict:
+<<<<<<< HEAD
     """
     Create a new generation job in the database and queue it for processing.
     
@@ -92,6 +99,19 @@ async def enqueue_generation_job(
     height = min(height, settings.MAX_IMAGE_SIZE)
     if width != original_width or height != original_height:
         logger.info(f"[ENQUEUE JOB] Image dimensions capped from {original_width}x{original_height} to {width}x{height}")
+=======
+    if not settings.S3_BUCKET:
+        raise RuntimeError("S3 not configured")
+    # Ensure DB connection (avoid stale imported reference)
+    if db_client.prisma is None:
+        await db_client.connect()
+
+
+    # Cap size to MAX_IMAGE_SIZE
+    width = min(width, settings.MAX_IMAGE_SIZE)
+    height = min(height, settings.MAX_IMAGE_SIZE)
+
+>>>>>>> origin/master
 
     # Create job in DB (use relation connect for user)
     data: dict = {
@@ -103,6 +123,7 @@ async def enqueue_generation_job(
         "style_preset": style_preset,
         "width": width,
         "height": height,
+<<<<<<< HEAD
     }
 
     logger.info(f"[ENQUEUE JOB] Job ID: {data['id']}")
@@ -115,17 +136,44 @@ async def enqueue_generation_job(
         data["project"] = {"connect": {"id": project_id}}
 
     logger.info(f"[ENQUEUE JOB] Creating GenerationJob with data keys: {list(data.keys())}")
+=======
+        # "userId": user_id,
+        # "projectId": project_id,
+    }
+
+    print("User ID being passed: %s", user_id)
+    print("Project ID being passed: %s", project_id)
+    if user_id:
+        data["user"] = {"connect": {"id": user_id}}
+        # data["userId"] = {"connect": {"id": user_id}}
+    if project_id:
+        data["project"] = {"connect": {"id": project_id}}
+        # data["projectId"] = {"connect": {"id": project_id}}
+
+    logger.info("Creating GenerationJob with data keys=%s", list(data.keys()))
+    logger.info("Project ID being passed: %s", project_id)
+>>>>>>> origin/master
     
     try:
         job = await db_client.prisma.generationjob.create(  # type: ignore
             data=data
         )
+<<<<<<< HEAD
         logger.info(f"[ENQUEUE JOB] ✅ GenerationJob created successfully - ID: {job.id}")
         
         # If this generation is associated with a project, update the project's parameters
         if project_id:
             data["projectId"] = project_id
             logger.info(f"[ENQUEUE JOB] Updating project {project_id} with generation parameters")
+=======
+        logger.info("GenerationJob created successfully with ID: %s", job.id)
+        
+        # If this generation is associated with a project, update the project's parameters
+        if project_id:
+
+            data["projectId"] = project_id
+            logger.info("Updating project %s with generation parameters", project_id)
+>>>>>>> origin/master
             
             success = await ProjectService.update_project_from_generation(
                 project_id,
@@ -134,9 +182,15 @@ async def enqueue_generation_job(
                 room_type,
                 style_preset
             )
+<<<<<<< HEAD
             logger.info(f"[ENQUEUE JOB] Project update result: {success}")
     except Exception as e:
         logger.error(f"[ENQUEUE JOB] ❌ Error creating GenerationJob: {str(e)}")
+=======
+            logger.info("Project update result: %s", success)
+    except Exception as e:
+        logger.error("Error creating GenerationJob: %s", str(e))
+>>>>>>> origin/master
         raise
     
     return job.model_dump()  # type: ignore[attr-defined]
@@ -201,6 +255,7 @@ async def process_generation_job(job_id: str, max_retries: int = 3, timeout: int
             logger.info(f"DB update to 'done' took {db_update_time:.3f}s for job {job_id}")
             
             # Deduct 1 credit from user if job is associated with a user
+<<<<<<< HEAD
             # IMPORTANT: Credits are only deducted AFTER successful generation
             if job.userId:  # type: ignore[attr-defined]
                 credit_start = time.time()
@@ -211,6 +266,16 @@ async def process_generation_job(job_id: str, max_retries: int = 3, timeout: int
                 )
                 credit_time = time.time() - credit_start
                 logger.info(f"[PROCESS JOB] ✅ Credit deducted successfully ({credit_time:.3f}s) - Job: {job_id}")
+=======
+            if job.userId:  # type: ignore[attr-defined]
+                credit_start = time.time()
+                await db_client.prisma.user.update(  # type: ignore
+                    where={"id": job.userId},  # type: ignore[attr-defined]
+                    data={"credits": {"decrement": 1}},
+                )
+                credit_time = time.time() - credit_start
+                logger.info(f"Credit deduction took {credit_time:.3f}s for job {job_id}")
+>>>>>>> origin/master
                 
             total_time = time.time() - start_time
             logger.info(f"Total processing time: {total_time:.3f}s for job {job_id}")

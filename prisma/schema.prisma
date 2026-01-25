@@ -14,11 +14,19 @@ datasource db {
 model User {
   id               String          @id @default(uuid())
   email            String          @unique
+<<<<<<< HEAD
   name             String?         @db.VarChar(100)
   passwordHash     String?
   provider         String          @db.VarChar(20)
   emailVerified    Boolean         @default(false)
   verificationCode String?         @db.VarChar(10)
+=======
+  name             String?
+  passwordHash     String?
+  provider         String
+  emailVerified    Boolean         @default(false)
+  verificationCode String?
+>>>>>>> origin/master
   codeExpiresAt    DateTime?
   codeAttempts     Int             @default(0)
   createdAt        DateTime        @default(now())
@@ -29,7 +37,10 @@ model User {
   projects         Project[]
   subscriptions    Subscription[]
 
+<<<<<<< HEAD
   @@index([email])
+=======
+>>>>>>> origin/master
   @@map("users")
   @@schema("public") 
 }
@@ -37,6 +48,7 @@ model User {
 model GenerationJob {
   id           String   @id @default(uuid())
   userId       String?
+<<<<<<< HEAD
   status       String   @db.VarChar(20)
   reference    String   @db.Text
   prompt       String?  @db.Text
@@ -56,6 +68,23 @@ model GenerationJob {
   @@index([projectId])
   @@index([status])
   @@index([createdAt])
+=======
+  status       String
+  reference    String
+  prompt       String?
+  room_type    String?
+  style_preset String?
+  width        Int
+  height       Int
+  output       String?
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
+
+>>>>>>> origin/master
   @@map("generation_jobs")
   @@schema("public") 
 }
@@ -63,6 +92,7 @@ model GenerationJob {
 model Payment {
   id                String        @id @default(uuid())
   userId            String
+<<<<<<< HEAD
   plan              String?       @db.VarChar(50)
   amount            Int
   credits           Int
@@ -79,6 +109,21 @@ model Payment {
   @@index([userId])
   @@index([payment_reference])
   @@index([status])
+=======
+  plan              String?
+  amount            Int
+  credits           Int
+  status            String
+  createdAt         DateTime      @default(now())
+  completedAt       DateTime?
+  description       String
+  isSubscription    Boolean       @default(false)
+  payment_reference String        @unique
+  subscriptionId    String?
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
+
+>>>>>>> origin/master
   @@map("payments")
   @@schema("public") 
 }
@@ -86,18 +131,29 @@ model Payment {
 model Subscription {
   id              String    @id @default(uuid())
   userId          String
+<<<<<<< HEAD
   plan            String    @db.VarChar(50)
   planCode        String    @db.VarChar(50)
   status          String    @db.VarChar(20)
+=======
+  plan            String
+  planCode        String
+  status          String
+>>>>>>> origin/master
   nextPaymentDate DateTime?
   lastPaymentDate DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   payments        Payment[]
+<<<<<<< HEAD
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
+=======
+  user            User      @relation(fields: [userId], references: [id])
+
+>>>>>>> origin/master
   @@map("subscriptions")
   @@schema("public") 
 }
@@ -105,6 +161,7 @@ model Subscription {
 model Project {
   id             String          @id @default(uuid())
   userId         String
+<<<<<<< HEAD
   name           String          @db.VarChar(200)
   description    String?         @db.Text
   isActive       Boolean         @default(true)
@@ -112,14 +169,26 @@ model Project {
   prompt         String?         @db.Text
   room_type      String?         @db.VarChar(50)
   style_preset   String?         @db.VarChar(50)
+=======
+  name           String
+  description    String?
+  isActive       Boolean         @default(true)
+  referenceImage String?
+  prompt         String?
+  room_type      String?
+  style_preset   String?
+>>>>>>> origin/master
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   generations    GenerationJob[]
   moodboards     Moodboard[]
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+<<<<<<< HEAD
   @@index([userId])
   @@index([isActive])
+=======
+>>>>>>> origin/master
   @@map("projects")
   @@schema("public") 
 }
@@ -128,6 +197,7 @@ model Moodboard {
   id             String   @id @default(uuid())
   projectId      String
   userId         String?
+<<<<<<< HEAD
   referenceImage String   @db.Text
   prompt         String?  @db.Text
   style          String?  @db.VarChar(50)
@@ -143,12 +213,27 @@ model Moodboard {
   @@index([projectId])
   @@index([userId])
   @@index([status])
+=======
+  referenceImage String
+  prompt         String?
+  style          String?
+  colorPalette   String?
+  status         String
+  items          String
+  output         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [userId], references: [id])
+
+>>>>>>> origin/master
   @@map("moodboards")
   @@schema("public") 
 }
 
 model EmailSubscriber {
   id        String   @id @default(uuid())
+<<<<<<< HEAD
   email     String   @unique @db.VarChar(255)
   name      String?  @db.VarChar(100)
   source    String?  @db.VarChar(50)
@@ -157,6 +242,14 @@ model EmailSubscriber {
 
   @@index([email])
   @@index([isActive])
+=======
+  email     String   @unique
+  name      String?
+  source    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+>>>>>>> origin/master
   @@map("email_subscribers")
   @@schema("public") 
 }

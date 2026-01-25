@@ -1,13 +1,17 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 from os import getenv, environ
+<<<<<<< HEAD
 import secrets
+=======
+>>>>>>> origin/master
 
 load_dotenv(override=True)
 
 class Settings(BaseSettings):
     APP_NAME: str = "Ventics AI API"
     VERSION: str = "0.1.0"
+<<<<<<< HEAD
     ENVIRONMENT: str = getenv("ENVIRONMENT", "development")
     MODEL_PROVIDER: str = "stub"
     TIMEOUT: int = 30
@@ -35,6 +39,16 @@ class Settings(BaseSettings):
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str | None = getenv("GOOGLE_CLIENT_ID")
+=======
+    MODEL_PROVIDER: str = "stub"
+    TIMEOUT: int = 30
+    MAX_IMAGE_SIZE: int = 1024
+    # Auth settings
+    JWT_SECRET_KEY: str = "change-me-in-prod"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    GOOGLE_CLIENT_ID: str | None = None
+>>>>>>> origin/master
     # Email settings
     SMTP_HOST: str | None = getenv("SMTP_HOST")
     SMTP_PORT: int = int(getenv("SMTP_PORT", "587"))
@@ -77,7 +91,11 @@ class Settings(BaseSettings):
     # Paystack
     PAYSTACK_SECRET_KEY: str | None = getenv("PAYSTACK_SECRET_KEY")
     PAYSTACK_PUBLIC_KEY: str | None = getenv("PAYSTACK_PUBLIC_KEY")
+<<<<<<< HEAD
     PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")  # Required for webhook verification
+=======
+    PAYSTACK_WEBHOOK_SECRET: str | None = getenv("PAYSTACK_WEBHOOK_SECRET")
+>>>>>>> origin/master
     REPLICATE_API_TOKEN: str | None = getenv("REPLICATE_API_TOKEN")
     
     # Bing Search API
@@ -88,6 +106,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+<<<<<<< HEAD
     
     def get_allowed_origins_list(self) -> list[str]:
         """Parse ALLOWED_ORIGINS string into list."""
@@ -128,3 +147,8 @@ settings = Settings()
 # Validate security configuration on import
 if getenv("SKIP_CONFIG_VALIDATION") != "true":
     settings.validate_security_config()
+=======
+
+
+settings = Settings()
+>>>>>>> origin/master

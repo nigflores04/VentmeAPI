@@ -7,10 +7,18 @@ from enum import Enum
 
 
 class SubscriptionPlan(str, Enum):
+<<<<<<< HEAD
     FREE = "free"            # 9 credits (3 requests) per week - ₦0
     STARTER = "starter"      # 120 credits (40 requests) - ₦7,500
     BASIC = "basic"          # 240 credits (80 requests) - ₦12,000
     STUDIO = "studio"        # 450 credits (150 requests) - ₦25,000
+=======
+    FREE = "free"            # 5 credits - ₦0
+    STARTER = "starter"      # 10 credits - ₦3,999.00
+    BASIC = "basic"          # 30 credits - ₦7,999.00
+    PREMIUM = "premium"      # 50 credits - ₦11,999.00
+    PROFESSIONAL = "professional"  # 150 credits - ₦29,999.00
+>>>>>>> origin/master
 
 
 class PaymentStatus(str, Enum):
