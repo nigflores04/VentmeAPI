@@ -3,34 +3,24 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.payment_schemas import SubscriptionPlan
-<<<<<<< HEAD
 from app.core.payment_config import SUBSCRIPTION_PLANS, INDIVIDUAL_PLAN
-=======
-from app.core.payment_config import SUBSCRIPTION_PLANS
->>>>>>> origin/master
 from app.core.auth import get_current_user_required
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
 
-<<<<<<< HEAD
 class PlanFeature(BaseModel):
     name: str
     included: bool
 
 
-=======
->>>>>>> origin/master
 class PlanResponse(BaseModel):
     plan: SubscriptionPlan
     credits: int
     price: int
     description: str
     popular: bool
-<<<<<<< HEAD
     features: List[PlanFeature]
-=======
->>>>>>> origin/master
 
 
 class PlanCreate(BaseModel):
@@ -57,17 +47,12 @@ async def get_all_plans():
             credits=config["credits"],
             price=config["price"],
             description=config["description"],
-<<<<<<< HEAD
             popular=config["popular"],
             features=[PlanFeature(**feature) for feature in config["features"]]
-=======
-            popular=config["popular"]
->>>>>>> origin/master
         ))
     return plans
 
 
-<<<<<<< HEAD
 class IndividualPlanResponse(BaseModel):
     name: str
     price_per_credit: int
@@ -90,8 +75,6 @@ async def get_individual_plan():
     )
 
 
-=======
->>>>>>> origin/master
 @router.get("/{plan}", response_model=PlanResponse)
 async def get_plan(plan: SubscriptionPlan):
     """Get a specific subscription plan."""
@@ -104,12 +87,8 @@ async def get_plan(plan: SubscriptionPlan):
         credits=config["credits"],
         price=config["price"],
         description=config["description"],
-<<<<<<< HEAD
         popular=config["popular"],
         features=[PlanFeature(**feature) for feature in config["features"]]
-=======
-        popular=config["popular"]
->>>>>>> origin/master
     )
 
 

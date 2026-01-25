@@ -1,6 +1,5 @@
 from typing import Optional, List
 
-<<<<<<< HEAD
 from pydantic import BaseModel, Field, field_validator, HttpUrl
 from app.core.validators import (
     validate_image_dimensions,
@@ -25,16 +24,6 @@ class ImageGenRequest(BaseModel):
             width = info.data.get('width', 512)
             validate_image_dimensions(width, v)
         return v
-=======
-from pydantic import BaseModel, Field
-
-
-class ImageGenRequest(BaseModel):
-    prompt: str = Field(..., min_length=1)
-    width: int = 512
-    height: int = 512
-    seed: Optional[int] = None
->>>>>>> origin/master
 
 
 class ImageGenResponse(BaseModel):
@@ -45,11 +34,7 @@ class ImageGenResponse(BaseModel):
 
 
 class GenerationRequest(BaseModel):
-<<<<<<< HEAD
     prompt: Optional[str] = Field(None, max_length=500)
-=======
-    prompt: Optional[str] = None
->>>>>>> origin/master
     room_type: Optional[str] = Field(
         default=None,
         description="Room type, e.g., 'Bedroom', 'Living room', 'Office', 'Studio', 'Kitchen', 'Bathroom'",
@@ -58,7 +43,6 @@ class GenerationRequest(BaseModel):
         default=None,
         description="Style preset, e.g., 'Minimalist', 'Cozy', 'Modern', 'Scandinavian', 'Industrial'",
     )
-<<<<<<< HEAD
     width: int = Field(default=768, ge=256, le=2048)
     height: int = Field(default=512, ge=256, le=2048)
     
@@ -83,10 +67,6 @@ class GenerationRequest(BaseModel):
         """Validate style preset."""
         validate_style_preset(v)
         return v
-=======
-    width: int = 768
-    height: int = 512
->>>>>>> origin/master
 
 
 class GenerationResponse(BaseModel):
@@ -97,7 +77,6 @@ class GenerationResponse(BaseModel):
 
 
 class GenerationJobCreate(BaseModel):
-<<<<<<< HEAD
     prompt: Optional[str] = Field(None, max_length=500)
     room_type: Optional[str] = None
     style_preset: Optional[str] = None
@@ -110,13 +89,6 @@ class GenerationJobCreate(BaseModel):
         if v:
             validate_prompt_length(v)
         return v
-=======
-    prompt: Optional[str] = None
-    room_type: Optional[str] = None
-    style_preset: Optional[str] = None
-    width: int = 1024
-    height: int = 1024
->>>>>>> origin/master
 
 
 class GenerationJobOut(BaseModel):

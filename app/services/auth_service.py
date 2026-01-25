@@ -10,15 +10,12 @@ from google.oauth2 import id_token as google_id_token
 
 from app.core.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
-<<<<<<< HEAD
 from app.core.exceptions import (
     AuthenticationError,
     ValidationError,
     DatabaseError,
     ExternalServiceError
 )
-=======
->>>>>>> origin/master
 from app.models.auth_schemas import (
     AuthResponse,
     GoogleLoginRequest,
@@ -38,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 async def register(req: RegisterRequest) -> AuthResponse:
-<<<<<<< HEAD
     """
     Register a new user with email and password.
     
@@ -67,18 +63,10 @@ async def register(req: RegisterRequest) -> AuthResponse:
     if not DATABASE_URL:
         logger.error("[REGISTER] Database URL not configured")
         raise DatabaseError("Database not configured")
-=======
-    DATABASE_URL = getenv("DATABASE_URL")
-
-    # Ensure Prisma is connected
-    if not DATABASE_URL:
-        raise ValueError("Database not configured")
->>>>>>> origin/master
     
     if db_client.prisma is None:
         try:
             await db_client.connect()
-<<<<<<< HEAD
             logger.info("[REGISTER] Connected to database")
         except Exception as e:
             logger.error(f"[REGISTER] Database connection failed: {e}")
@@ -97,20 +85,6 @@ async def register(req: RegisterRequest) -> AuthResponse:
     # Create new user with FREE CREDITS
     user_id = str(uuid.uuid4())
     logger.info(f"[REGISTER] Creating user with ID: {user_id}")
-=======
-            print("register: connected to database")
-        except Exception as e:
-            raise ValueError(f"Database connection failed: {e}")
-    
-    if not db_client.prisma.is_connected():  # type: ignore[attr-defined]
-        raise ValueError("Database not connected")
-
-    existing = await db_client.prisma.user.find_unique(where={"email": req.email})
-    if existing:
-        raise ValueError("Email already registered")
-    
-    user_id = str(uuid.uuid4())
->>>>>>> origin/master
     created = await db_client.prisma.user.create(
         data={
             "id": user_id,
@@ -118,16 +92,10 @@ async def register(req: RegisterRequest) -> AuthResponse:
             "name": req.name,
             "passwordHash": hash_password(req.password),
             "provider": "password",
-<<<<<<< HEAD
             "credits": 9  # FREE PLAN: 9 credits = 3 generations (3 credits per generation)
         }
     )
     logger.info(f"[REGISTER] ✅ User created successfully - ID: {created.id}, Email: {created.email}, Credits: 9")
-=======
-            "credits": 9 # free test credits
-        }
-    )
->>>>>>> origin/master
     logger.info("register: created user id=%s email=%s (DB)", created.id, created.email)
     
     if created.provider == "password":
@@ -146,7 +114,6 @@ async def register(req: RegisterRequest) -> AuthResponse:
 
 
 async def login(req: LoginRequest) -> AuthResponse:
-<<<<<<< HEAD
     """
     Authenticate user with email and password.
     
@@ -172,15 +139,10 @@ async def login(req: LoginRequest) -> AuthResponse:
     if not settings.DATABASE_URL:
         logger.error("[LOGIN] Database not configured")
         raise DatabaseError("Database not configured")
-=======
-    if not settings.DATABASE_URL:
-        raise ValueError("Database not configured")
->>>>>>> origin/master
     
     if db_client.prisma is None:
         try:
             await db_client.connect()
-<<<<<<< HEAD
             logger.info("[LOGIN] Connected to database")
         except Exception as e:
             logger.error(f"[LOGIN] Database connection failed: {e}")
@@ -192,20 +154,10 @@ async def login(req: LoginRequest) -> AuthResponse:
 
     # Find user by email
     logger.info(f"[LOGIN] Looking up user: {req.email}")
-=======
-        except Exception as e:
-            raise ValueError(f"Database connection failed: {e}")
-    
-    if not db_client.prisma.is_connected():  # type: ignore[attr-defined]
-        raise ValueError("Database not connected")
-
-    logger.info("login: using DB lookup for email=%s", req.email)
->>>>>>> origin/master
     db_user = await db_client.prisma.user.find_unique(where={"email": req.email})
     
     # Check if user exists
     if not db_user:
-<<<<<<< HEAD
         logger.warning(f"[LOGIN] ❌ User not found: {req.email}")
         raise AuthenticationError("Invalid email or password")  # Don't reveal which field is wrong
     
@@ -220,17 +172,6 @@ async def login(req: LoginRequest) -> AuthResponse:
         raise AuthenticationError("Invalid email or password")  # Don't reveal which field is wrong
     
     logger.info(f"[LOGIN] ✅ Login successful - User: {db_user.email}, Credits: {db_user.credits}")
-=======
-        raise ValueError("User with email not found")
-    
-    # Check if user has a password (not a Google user trying to login with password)
-    if not db_user.passwordHash:
-        raise ValueError("This account uses Google login. Please sign in with Google.")
-    
-    # Check password
-    if not verify_password(req.password, db_user.passwordHash):
-        raise ValueError("Password incorrect")
->>>>>>> origin/master
     
     # Use getattr with default False for backward compatibility
     email_verified = getattr(db_user, 'emailVerified', False)
@@ -250,7 +191,6 @@ async def login(req: LoginRequest) -> AuthResponse:
 
 
 async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
-<<<<<<< HEAD
     """
     Authenticate user with Google OAuth.
     
@@ -303,27 +243,10 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
     if not settings.DATABASE_URL:
         logger.error("[GOOGLE LOGIN] Database not configured")
         raise DatabaseError("Database not configured")
-=======
-    if not settings.GOOGLE_CLIENT_ID:
-        raise ValueError("Google login not configured")
-    # Verify Google ID token
-    idinfo = google_id_token.verify_oauth2_token(req.id_token, google_requests.Request(), settings.GOOGLE_CLIENT_ID)
-    if idinfo.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
-        raise ValueError("Invalid Google token issuer")
-
-    email = idinfo.get("email")
-    name = idinfo.get("name") or idinfo.get("given_name")
-    if not email:
-        raise ValueError("Google token missing email")
-
-    if not settings.DATABASE_URL:
-        raise ValueError("Database not configured")
->>>>>>> origin/master
     
     if db_client.prisma is None:
         try:
             await db_client.connect()
-<<<<<<< HEAD
             logger.info("[GOOGLE LOGIN] Connected to database")
         except Exception as e:
             logger.error(f"[GOOGLE LOGIN] Database connection failed: {e}")
@@ -358,34 +281,6 @@ async def login_with_google(req: GoogleLoginRequest) -> AuthResponse:
         logger.info(f"[GOOGLE LOGIN] ✅ Email verified and credits allocated: {email}")
     
     logger.info(f"[GOOGLE LOGIN] ✅ Google login successful - User: {db_user.email}, Credits: {db_user.credits}")
-=======
-        except Exception as e:
-            raise ValueError(f"Database connection failed: {e}")
-    
-    if not db_client.prisma.is_connected():  # type: ignore[attr-defined]
-        raise ValueError("Database not connected")
-
-    logger.info("google login: using DB for email=%s", email)
-    db_user = await db_client.prisma.user.find_unique(where={"email": email})
-    if not db_user:
-        db_user = await db_client.prisma.user.create(
-            data={
-                "id": str(uuid.uuid4()),
-                "email": email,
-                "name": name,
-                "passwordHash": None,
-                "provider": "google",
-            }
-        )
-    # Auto-verify Google users
-    email_verified_google = getattr(db_user, 'emailVerified', False)
-    if not email_verified_google:
-        await db_client.prisma.user.update(
-            where={"email": email},
-            data={"emailVerified": True, "credits": 9}
-        )
-        email_verified_google = True
->>>>>>> origin/master
     
     logger.info("google login: user id=%s email=%s (DB)", db_user.id, db_user.email)
     token_data = create_access_token(subject=db_user.id, email=db_user.email, expires_delta=timedelta(weeks=1))
