@@ -1,0 +1,44 @@
+
+
+# Core FastAPI and server
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+python-multipart==0.0.20
+
+# Database and ORM
+prisma
+
+# Authentication and security
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.5.0
+
+# HTTP clients
+httpx==0.28.1
+aiohttp==3.12.15
+requests==2.32.4
+
+# AWS and cloud services
+boto3==1.40.6
+
+# AI services
+google-genai==1.32.0
+openai>=1.0.0
+
+# Payment processing
+paystack-sdk==1.0.1
+
+# Image processing
+pillow==11.3.0
+
+# Configuration and environment
+pydantic-settings==2.10.1
+python-dotenv==1.1.1
+
+# Email validation
+email_validator==2.2.0
+
+replicate
+
+redis
+
+google-cloud-vision
