@@ -5,7 +5,7 @@ from app.models.payment_schemas import SubscriptionPlan
 SUBSCRIPTION_PLANS: Dict[SubscriptionPlan, Dict] = {
     SubscriptionPlan.FREE: {
         "credits": 5,
-        "price": 0,  # ₦6,500.00 (equivalent to ~$4)
+        "price": 0,  # ₦0.00 (equivalent to ~$0)
         "description": "Perfect for trying out our AI remodeling service",
         "popular": False
     },
