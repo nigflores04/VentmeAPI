@@ -1,0 +1,145 @@
+generator client {
+  provider      = "prisma-client-py"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+  previewFeatures = ["multiSchema"] 
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DIRECT_URL")
+  directUrl= env("DIRECT_URL")
+   schemas  = ["public", "auth"] 
+}
+
+model User {
+  id               String          @id @default(uuid())
+  email            String          @unique
+  name             String?
+  passwordHash     String?
+  provider         String
+  emailVerified    Boolean         @default(false)
+  verificationCode String?
+  codeExpiresAt    DateTime?
+  codeAttempts     Int             @default(0)
+  createdAt        DateTime        @default(now())
+  credits          Int             @default(1)
+  generations      GenerationJob[]
+  moodboards       Moodboard[]
+  payments         Payment[]
+  projects         Project[]
+  subscriptions    Subscription[]
+
+  @@map("users")
+  @@schema("public") 
+}
+
+model GenerationJob {
+  id           String   @id @default(uuid())
+  userId       String?
+  status       String
+  reference    String
+  prompt       String?
+  room_type    String?
+  style_preset String?
+  width        Int
+  height       Int
+  output       String?
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
+
+  @@map("generation_jobs")
+  @@schema("public") 
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String
+  plan              String?
+  amount            Int
+  credits           Int
+  status            String
+  createdAt         DateTime      @default(now())
+  completedAt       DateTime?
+  description       String
+  isSubscription    Boolean       @default(false)
+  payment_reference String        @unique
+  subscriptionId    String?
+  subscription      Subscription? @relation(fields: [subscriptionId], references: [id])
+  user              User          @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+  @@schema("public") 
+}
+
+model Subscription {
+  id              String    @id @default(uuid())
+  userId          String
+  plan            String
+  planCode        String
+  status          String
+  nextPaymentDate DateTime?
+  lastPaymentDate DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  payments        Payment[]
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@map("subscriptions")
+  @@schema("public") 
+}
+
+model Project {
+  id             String          @id @default(uuid())
+  userId         String
+  name           String
+  description    String?
+  isActive       Boolean         @default(true)
+  referenceImage String?
+  prompt         String?
+  room_type      String?
+  style_preset   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  generations    GenerationJob[]
+  moodboards     Moodboard[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("projects")
+  @@schema("public") 
+}
+
+model Moodboard {
+  id             String   @id @default(uuid())
+  projectId      String
+  userId         String?
+  referenceImage String
+  prompt         String?
+  style          String?
+  colorPalette   String?
+  status         String
+  items          String
+  output         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [userId], references: [id])
+
+  @@map("moodboards")
+  @@schema("public") 
+}
+
+model EmailSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  source    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("email_subscribers")
+  @@schema("public") 
+}
